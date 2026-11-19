@@ -1,0 +1,7 @@
+{
+  "version": "1.6.0",
+  "title": "Actualizaciones desde GitHub",
+  "notes": "- Aviso en YouTube cuando hay una versión nueva (Descargar → descomprimir → Recargar)\n- Pegar del Sincronizador con varios VODs (VOD 1 / VOD 2, CORTE, SALTO ATRÁS)\n- Ajustar con enlaces de Twitch y contraseña al iniciar sesión",
+  "zip": "chat-replay-youtube.zip",
+  "date": "2026-11-19"
+}
