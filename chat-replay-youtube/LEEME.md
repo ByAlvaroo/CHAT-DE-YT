@@ -105,15 +105,22 @@ Por defecto el vídeo se hace más pequeño y el chat queda **fijo a la derecha*
 ## Vídeos recortados
 Si el vídeo de YouTube dura menos que el chat, aparece un aviso con la diferencia. Ve al punto donde el chat empieza a ir adelantado y pulsa **✂ Corte aquí**: desde ahí el chat pega el mismo salto que el vídeo. Puedes añadir varios cortes en Ajustes → Sincronización.
 
-## Actualizaciones desde GitHub (1.6)
-Las versiones nuevas se publican en **github.com/ByAlvaroo/CHAT-DE-YT**. Al abrir YouTube, si hay una versión más nueva sale un aviso arriba a la derecha:
-1. **Descargar**: baja el zip.
-2. Descomprímelo **encima de la carpeta de la extensión** (en el mismo sitio que la primera vez, aceptando reemplazar los archivos).
-3. **Ya está → Recargar**: la extensión se reinicia y la página se recarga. Sale «✓ Chat Replay actualizado».
+## Actualizaciones desde GitHub (automáticas desde la 1.7)
+Las versiones nuevas se publican en **github.com/ByAlvaroo/CHAT-DE-YT**. Al abrir YouTube, si hay una versión más nueva sale un aviso arriba a la derecha con **una frase que explica lo nuevo** y te pregunta **cómo quieres actualizar**:
 
-Tus ajustes, chats, sincronización y sesión **no se pierden** (el identificador de la extensión es fijo). Si pulsas Recargar sin haber reemplazado los archivos, el aviso te lo dice. «Más tarde» lo calla 24 h y «Omitir esta versión» hasta la siguiente. Se configura en Ajustes → Acerca de → Actualizaciones (repositorio, «Buscar ahora», activar o desactivar el aviso).
+- **⚡ Automática**: se abre una pestaña, se baja la versión nueva de GitHub, se reemplazan los archivos en la carpeta de la extensión, la extensión se reinicia y **YouTube vuelve solo al mismo minuto del vídeo**. No se descarga ningún zip a tu PC (todo se hace en memoria), así que no hay nada que borrar.
+  - La primera vez te pide **elegir la carpeta de la extensión** (la que cargaste en `chrome://extensions`, con `manifest.json` dentro). Chrome pregunta si la extensión puede modificarla: elige **«Permitir en cada visita»** y las siguientes actualizaciones son de **un solo clic**.
+  - Solo se toca esa carpeta, y se comprueba que es la de esta extensión (y que el zip de GitHub también lo es) antes de cambiar nada.
+- **📦 Manual**: Descargar → descomprimir encima de la carpeta → **Ya está → Recargar**.
+- Marca **«Recordar mi elección»** para que no vuelva a preguntar. Se cambia en Ajustes → Acerca de → **Cómo actualizar** (Preguntar / Automática / Manual), donde también puedes ver u **olvidar la carpeta** elegida.
+- Al terminar sale «✓ Chat Replay actualizado a la X» con la frase de las novedades. Tus ajustes, chats, sincronización y sesión **no se pierden**.
 
-**Para publicar una versión** (ByAlvaro): copia en el repositorio la carpeta `chat-replay-youtube` y el `chat-replay-youtube.zip` nuevos, cambia el número en `version.json` (el mismo que en `manifest.json`) y escribe las novedades en `notes`. Luego, en GitHub Desktop, **Commit** y **Push origin**. El repositorio tiene que ser **público**.
+**Para publicar una versión** (ByAlvaro): copia en el repositorio la carpeta `chat-replay-youtube` y el `chat-replay-youtube.zip` nuevos y en `version.json` cambia:
+- `version`: el mismo número que en `manifest.json`;
+- `resumen`: **una frase corta con lo nuevo** (es lo que sale destacado en el aviso);
+- `notes`: la lista completa de novedades.
+
+Luego, en GitHub Desktop, **Commit** y **Push origin**. El repositorio tiene que ser **público**.
 
 ## Actualizar sin perder nada
 Descomprime la versión nueva **encima de la misma carpeta** (reemplazando los archivos) y en `chrome://extensions` pulsa **↻** en la extensión. No pulses «Quitar»: así se conservan los ajustes, la sincronización y los chats guardados.

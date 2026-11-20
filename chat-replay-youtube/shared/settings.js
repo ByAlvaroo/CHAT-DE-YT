@@ -47,6 +47,7 @@ export const DEFAULTS = {
   listBadges: true,         // círculo azul y duración azul en las listas de YouTube si el vídeo tiene chat
   updCheck: true,           // avisar en YouTube cuando haya una versión nueva en GitHub
   updRepo: 'ByAlvaroo/CHAT-DE-YT', // repositorio de GitHub con las versiones («Releases»)
+  updMode: 'ask',           // al actualizar: 'ask' (preguntar), 'auto' (reemplaza la carpeta solo) o 'manual' (bajar el zip)
   ytHeatmap: false,         // mapa de calor en la barra de progreso de YouTube
   bookmarks: false,         // marcadores
   emoteCombo: false,        // contador grande cuando hay spam de un emote

@@ -561,27 +561,50 @@
       button.p{background:#1e6eff;color:#fff}button.p:hover{background:#3a82ff}
       button.l{background:none;color:#a9a8a1;padding:7px 6px}button.l:hover{color:#ecebe6;background:none}
       .ok .ic{background:#1f9d55}
+      .sum{background:rgba(30,110,255,.14);color:#cfe0ff;border-radius:8px;padding:8px 10px;font-weight:600;font-size:12.5px;margin:4px 0 8px}
+      details.nd{margin:0 0 8px;font-size:12px;color:#a9a8a1}details.nd summary{cursor:pointer}details.nd .notes{margin:6px 0 0}
+      .q{font-weight:650;margin:6px 0 8px}
+      .opt{display:flex;gap:10px;align-items:flex-start;margin:0 0 8px}.opt button{flex:none;min-width:112px;text-align:center}.opt span{font-size:12px;color:#a9a8a1;padding-top:2px}
+      .rem{display:flex;gap:6px;align-items:center;font-size:12px;color:#a9a8a1;margin:4px 0 2px;cursor:pointer}
     </style><div class="c"></div>`;
     build(root.querySelector('.c'), root);
     document.documentElement.appendChild(updEl);
   }
   const ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>';
   const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  function showUpdate(u) {
+  const vidT = () => { const v = document.querySelector('video'); return v && isFinite(v.currentTime) ? Math.floor(v.currentTime) : 0; };
+  function showUpdate(u, forceView) {
     const i = u.info;
+    const view = forceView || (u.stale ? 'manual' : u.mode === 'auto' ? 'auto' : u.mode === 'manual' ? 'manual' : 'ask');
     updCard((c) => {
-      c.innerHTML = `<div class="hd"><div class="ic">${ICON}</div><div class="t">Chat Replay ${esc(i.version)} disponible</div><button class="x" title="Cerrar">✕</button></div>
-        <div class="sub">Tienes la ${esc(u.current)}${i.title && i.title !== 'v' + i.version && i.title !== i.version ? ' · ' + esc(i.title) : ''}</div>
-        ${u.stale ? `<div class="warn">⚠ Sigue la versión ${esc(u.current)}: los archivos no se han reemplazado. Descomprime el zip <b>en la misma carpeta</b> de antes (la que contiene <code>chat-replay-youtube</code>), acepta <b>reemplazar</b> y vuelve a pulsar «Recargar».</div>` : ''}
-        ${i.notes ? `<div class="notes">${esc(i.notes)}</div>` : ''}
+      const head = `<div class="hd"><div class="ic">${ICON}</div><div class="t">Chat Replay ${esc(i.version)} disponible</div><button class="x" title="Cerrar">✕</button></div>
+        <div class="sub">Tienes la ${esc(u.current)}</div>
+        ${i.summary ? `<div class="sum">✨ ${esc(i.summary)}</div>` : ''}
+        ${i.notes ? `<details class="nd"><summary>Todas las novedades</summary><div class="notes">${esc(i.notes)}</div></details>` : ''}`;
+      const foot = `<div class="row" style="margin-top:6px"><button class="b l" data-a="later">Más tarde</button><button class="b l" data-a="skip">Omitir esta versión</button><button class="b l" data-a="page">Ver en GitHub</button></div>`;
+      let body = '';
+      if (view === 'ask') body = `
+        <div class="q">¿Cómo quieres actualizar?</div>
+        <div class="opt"><button class="b p" data-a="auto">⚡ Automática</button><span>Reemplaza los archivos en la carpeta de la extensión y recarga YouTube en este minuto. No se descarga nada.</span></div>
+        <div class="opt"><button class="b" data-a="manual">📦 Manual</button><span>Descargas el zip, lo descomprimes encima de la carpeta y pulsas «Recargar».</span></div>
+        <label class="rem"><input type="checkbox" id="rem"> Recordar mi elección (se cambia en Ajustes → Acerca de)</label>`;
+      else if (view === 'auto') body = `
+        <div class="row"><button class="b p" data-a="auto">⚡ Actualizar ahora</button><button class="b l" data-a="toManual">Prefiero manual</button></div>
+        <div class="sub" style="margin:8px 0 0">Se reemplazan los archivos de la extensión y YouTube vuelve a este mismo minuto. Tus ajustes, chats y sesión no se pierden.</div>`;
+      else body = `
+        ${u.stale ? `<div class="warn">⚠ Sigue la versión ${esc(u.current)}: los archivos no se han reemplazado. Descomprime el zip <b>en la misma carpeta</b> de antes (la que contiene <code>chat-replay-youtube</code>), acepta <b>reemplazar</b> y vuelve a pulsar «Recargar». O usa ⚡ Automática.</div>` : ''}
         <ol><li>Descarga el zip.</li><li>Descomprímelo encima de la carpeta de la extensión (reemplazar los archivos). Tus ajustes, chats y sesión no se pierden.</li><li>Pulsa <b>Recargar</b>.</li></ol>
-        <div class="row"><button class="b p" data-a="dl">Descargar</button><button class="b" data-a="reload">Ya está → Recargar</button></div>
-        <div class="row" style="margin-top:6px"><button class="b l" data-a="later">Más tarde</button><button class="b l" data-a="skip">Omitir esta versión</button><button class="b l" data-a="page">Ver en GitHub</button></div>
+        <div class="row"><button class="b p" data-a="dl">Descargar</button><button class="b" data-a="reload">Ya está → Recargar</button><button class="b l" data-a="auto">⚡ Mejor automática</button></div>
         <div class="sub" style="margin:8px 0 0">Si tras recargar no vuelve el chat: <a href="#" data-a="ext" style="color:#7fb0ff">abre las extensiones</a> y pulsa ↻ en Chat Replay.</div>`;
+      c.innerHTML = head + body + foot;
       c.addEventListener('click', async e => {
         const a = e.target.closest('[data-a], .x');
         if (!a) return;
         const act = a.classList.contains('x') ? 'later' : a.dataset.a;
+        const rem = c.querySelector('#rem');
+        if ((act === 'auto' || act === 'manual') && rem && rem.checked) updMsg({ cmd: 'updSetMode', mode: act });
+        if (act === 'auto') { a.textContent = 'Abriendo…'; a.disabled = true; await updMsg({ cmd: 'updAuto', t: vidT() }); updClose(); return; }
+        if (act === 'manual' || act === 'toManual') { showUpdate(u, 'manual'); return; }
         if (act === 'dl') { window.open(i.url || i.page, '_blank', 'noopener'); return; }
         if (act === 'page') { window.open(i.page, '_blank', 'noopener'); return; }
         if (act === 'ext') { e.preventDefault(); updMsg({ cmd: 'updOpenExt' }); return; }
@@ -589,8 +612,9 @@
         if (act === 'skip') { updMsg({ cmd: 'updSkip', version: i.version }); updClose(); return; }
         if (act === 'reload') {
           a.textContent = 'Recargando…'; a.disabled = true;
+          const t = vidT();
           await updMsg({ cmd: 'updReload' });
-          setTimeout(() => location.reload(), 1400);
+          setTimeout(() => { const url = new URL(location.href); if (t > 3 && url.pathname === '/watch') url.searchParams.set('t', t + 's'); location.replace(url.toString()); }, 1400);
         }
       });
     });
@@ -598,9 +622,9 @@
   function showUpdated(up) {
     updCard((c) => {
       c.classList.add('ok');
-      c.innerHTML = `<div class="hd"><div class="ic">✓</div><div class="t">Chat Replay actualizado a la ${esc(up.to)}</div><button class="x" title="Cerrar">✕</button></div><div class="sub">Antes tenías la ${esc(up.from)}. Todo se ha conservado.</div>`;
+      c.innerHTML = `<div class="hd"><div class="ic">✓</div><div class="t">Chat Replay actualizado a la ${esc(up.to)}</div><button class="x" title="Cerrar">✕</button></div><div class="sub">Antes tenías la ${esc(up.from)}. Todo se ha conservado.</div>${up.summary ? `<div class="sum">✨ ${esc(up.summary)}</div>` : ''}`;
       c.querySelector('.x').onclick = updClose;
-      setTimeout(updClose, 7000);
+      setTimeout(updClose, 10000);
     });
     updMsg({ cmd: 'updSeen' });
   }

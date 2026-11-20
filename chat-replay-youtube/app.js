@@ -528,6 +528,15 @@ function renderAbout(box) {
   const rl = h('button', { class: 'btn', hidden: true, onclick: async e => { e.currentTarget.textContent = 'Recargando…'; e.currentTarget.disabled = true; if (port) port.postMessage({ type: 'reloadPage', ms: 1400 }); await ask({ cmd: 'updReload' }); } }, 'Ya está → Recargar');
   box.append(frow('Versión instalada', `Chat Replay ${chrome.runtime.getManifest().version}. Las versiones nuevas salen del repositorio de GitHub de abajo (su version.json).`, chk, dl, rl), stTxt);
   box.append(row({ k: 'updCheck', t: 'Avisar en YouTube si hay versión nueva', d: 'Al abrir YouTube sale un aviso con «Descargar» y «Recargar». Se comprueba como mucho cada 3 horas.', type: 'toggle' }));
+  box.append(row({ k: 'updMode', t: 'Cómo actualizar', d: 'Automática: reemplaza los archivos en la carpeta de la extensión y recarga YouTube en el mismo minuto (sin descargar nada). Manual: bajas el zip y lo descomprimes tú.', type: 'select', opts: [['ask', 'Preguntar cada vez'], ['auto', '⚡ Automática'], ['manual', '📦 Manual']] }));
+  const dirTxt = h('span', { class: 'hint', text: '…' });
+  const forget = h('button', { class: 'btn', hidden: true, onclick: async () => { const SU = await import('./shared/selfupdate.js'); await SU.forgetDir(); paintDir(); toast('Carpeta olvidada: la próxima vez te la pedirá.'); } }, 'Olvidar carpeta');
+  const paintDir = async () => {
+    try { const SU = await import('./shared/selfupdate.js'); const d = await SU.getDir(); dirTxt.textContent = d ? `«${d.name}»${(await SU.permOf(d, false)) ? ' · con permiso' : ' · Chrome pedirá confirmar el permiso'}` : 'Aún no elegida (te la pide la primera actualización automática).'; forget.hidden = !d; }
+    catch { dirTxt.textContent = 'No disponible.'; }
+  };
+  box.append(frow('Carpeta de la extensión', 'La que eliges la primera vez que actualizas en automático. Solo se modifica esa carpeta.', dirTxt, forget));
+  paintDir();
   box.append(row({ k: 'updRepo', t: 'Repositorio de GitHub', d: 'usuario/repositorio (o el enlace). Tiene que ser público y tener el version.json y el .zip (o una «Release»).', type: 'text', ph: 'ByAlvaroo/CHAT-DE-YT' }));
   box.append(h('p', { class: 'hint', text: 'Para publicar una versión: copia la carpeta y el .zip nuevos en tu repositorio, cambia el número en version.json y haz «Commit» + «Push» en GitHub Desktop. A los que tengan la extensión les saldrá el aviso al abrir YouTube.' }));
   ask({ cmd: 'updStatus' }).then(paint);

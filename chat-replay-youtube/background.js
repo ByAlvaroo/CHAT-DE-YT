@@ -78,6 +78,18 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
         case 'updSkip': return U.skip(m.version);
         case 'updSeen': return U.dismissUpdated();
         case 'updReload': return U.reloadNow();
+        case 'updAuto': {
+          const t = _s && _s.tab;
+          await chrome.tabs.create({ url: chrome.runtime.getURL(`update.html?tab=${t ? t.id : ''}&t=${Math.floor(+m.t || 0)}`), index: t ? t.index + 1 : undefined, openerTabId: t ? t.id : undefined });
+          return { ok: true };
+        }
+        case 'updFinish': {
+          // apunta qué pestañas de YouTube hay que recargar cuando vuelva a arrancar la extensión
+          const tabs = await chrome.tabs.query({ url: 'https://www.youtube.com/*' }).catch(() => []);
+          await chrome.storage.local.set({ tcr_reload_tabs: { at: Date.now(), main: m.tab ? { id: +m.tab, t: Math.floor(+m.t || 0) } : null, others: tabs.map(x => x.id).filter(id => id !== +m.tab) } });
+          return U.reloadNow();
+        }
+        case 'updSetMode': { const S = await loadSettings(); await chrome.storage.local.set({ [KEY]: { ...S, updMode: m.mode } }); return { ok: true }; }
         case 'updOpenExt': await chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id }); return { ok: true };
       }
       return { ok: false };
@@ -118,3 +130,24 @@ const boot = () => {
 chrome.runtime.onStartup.addListener(boot);
 chrome.runtime.onInstalled.addListener(d => { U.onInstalled(d).catch(() => {}); boot(); });
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tcr-feed') followCheck(false); });
+
+/* ---------- Tras una actualización automática: vuelve a YouTube en el mismo minuto del vídeo ---------- */
+(async () => {
+  const o = (await chrome.storage.local.get('tcr_reload_tabs').catch(() => ({}))).tcr_reload_tabs;
+  if (!o) return;
+  await chrome.storage.local.remove('tcr_reload_tabs');
+  if (Date.now() - (o.at || 0) > 3 * 60e3) return;
+  if (o.main && o.main.id) {
+    try {
+      const tab = await chrome.tabs.get(o.main.id);
+      const u = new URL(tab.url);
+      if (u.hostname === 'www.youtube.com') {
+        if (o.main.t > 3 && u.pathname === '/watch') u.searchParams.set('t', o.main.t + 's');
+        await chrome.tabs.update(o.main.id, { url: u.toString(), active: true });
+      }
+    } catch {}
+  }
+  for (const id of o.others || []) chrome.tabs.reload(id).catch(() => {});
+  // la pestaña de la actualización ya no sirve (la extensión se ha reiniciado)
+  try { const ts = await chrome.tabs.query({ url: chrome.runtime.getURL('update.html') + '*' }); for (const t of ts) chrome.tabs.remove(t.id).catch(() => {}); } catch {}
+})();

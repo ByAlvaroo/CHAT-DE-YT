@@ -30,7 +30,7 @@ function view(st, S) {
     skipped: !!(info && st.skip === info.version), snooze: st.snooze || 0,
     // pulsaste «Recargar» pero sigue la versión vieja: no se reemplazaron los archivos
     stale: !!(st.expect && cmpVer(cur, st.expect) < 0),
-    updated: st.updated || null, auto: S ? S.updCheck !== false : true
+    updated: st.updated || null, auto: S ? S.updCheck !== false : true, mode: (S && S.updMode) || 'ask'
   };
 }
 
@@ -54,6 +54,8 @@ export async function check(force) {
         title: j.title || '',
         notes: String(j.notes || '').replace(/\r/g, '').trim().slice(0, 1500),
         url: /^https?:/.test(zip) ? zip : `https://github.com/${repo}/raw/HEAD/${zip.split('/').map(encodeURIComponent).join('/')}`,
+        raw: /^https?:/.test(zip) ? zip : `https://raw.githubusercontent.com/${repo}/HEAD/${zip.split('/').map(encodeURIComponent).join('/')}`,
+        summary: String(j.resumen || j.summary || '').trim().slice(0, 300),
         file: zip.split('/').pop(),
         page: `https://github.com/${repo}`,
         published: j.date || null
@@ -74,6 +76,8 @@ export async function check(force) {
           title: j.name || j.tag_name || '',
           notes: String(j.body || '').replace(/\r/g, '').trim().slice(0, 1500),
           url: asset ? asset.browser_download_url : null,
+          raw: asset ? asset.browser_download_url : null,
+          summary: String(j.body || '').split('\n').map(x => x.replace(/^[-*#\s]+/, '').trim()).find(Boolean) || '',
           file: asset ? asset.name : null,
           page: j.html_url || `https://github.com/${repo}/releases/latest`,
           published: j.published_at || null
@@ -106,7 +110,7 @@ export async function onInstalled(details) {
   if (!details || details.reason !== 'update') return;
   const st = await getSt();
   const cur = current();
-  if (details.previousVersion && cmpVer(cur, details.previousVersion) > 0) st.updated = { from: details.previousVersion, to: cur, at: Date.now() };
+  if (details.previousVersion && cmpVer(cur, details.previousVersion) > 0) st.updated = { from: details.previousVersion, to: cur, at: Date.now(), summary: st.info && st.info.version === cur ? st.info.summary || '' : '' };
   if (st.expect && cmpVer(cur, st.expect) >= 0) delete st.expect;
   delete st.snooze;
   await setSt(st);

@@ -1,7 +1,8 @@
 {
-  "version": "1.6.1",
-  "title": "Enlaces de Twitch con minuto de YouTube",
-  "notes": "- «Ajustar con enlaces de Twitch» acepta el minuto de Twitch y el de YouTube:\n  https://www.twitch.tv/videos/… desde 1:23:26.100 hasta 9:28:30.033 | YouTube desde 0:00:00.000 hasta 8:05:03.934\n- Avisa si en Twitch y en YouTube no dura lo mismo (hay cortes)\n- Incluye todo lo de la 1.6.0: avisos de actualización desde GitHub",
+  "version": "1.7.0",
+  "resumen": "Actualizaciones automáticas: con un clic la extensión se reemplaza sola y YouTube vuelve al mismo minuto, sin descargar nada.",
+  "title": "Actualizaciones automáticas",
+  "notes": "- ⚡ Actualización automática: reemplaza los archivos en la carpeta de la extensión y recarga YouTube en el mismo minuto (sin descargar ningún zip)\n- Al actualizar te pregunta si la quieres automática o manual (y puede recordar tu elección)\n- Cada actualización trae una frase con lo nuevo\n- Incluye la 1.6.1: enlaces de Twitch con minuto de YouTube",
   "zip": "chat-replay-youtube.zip",
   "date": "2026-11-20"
 }
