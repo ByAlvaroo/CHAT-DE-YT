@@ -698,7 +698,7 @@ function renderAccount(box) {
 function twitchSection(sy, m) {
   const out = [h('h3', { class: 'grp', text: 'Ajustar con enlaces de Twitch' })];
   const ta = h('textarea', { class: 'txt', spellcheck: 'false', style: 'height:110px;font-family:ui-monospace,Consolas,monospace;font-size:12px',
-    placeholder: 'Un enlace por VOD, en orden:\nhttps://www.twitch.tv/videos/111?t=0h5m10s hasta 3:02:00\nhttps://www.twitch.tv/videos/222 desde 0:00 hasta 1:30:00' });
+    placeholder: 'Un enlace por VOD, en orden:\nhttps://www.twitch.tv/videos/111 desde 1:23:26.100 hasta 9:28:30.033 | YouTube desde 0:00:00.000 hasta 8:05:03.934\nhttps://www.twitch.tv/videos/222?t=0h5m10s hasta 3:02:00' });
   ta.value = ui.tw;
   const prev = h('div', { class: 'hint', style: 'min-height:18px;white-space:pre-line' });
   const go = h('button', { class: 'btn primary', disabled: true }, '🔗 Ajustar todo');
@@ -706,10 +706,10 @@ function twitchSection(sy, m) {
   const paint = () => {
     const es = parseTwitchLinks(ta.value);
     go.disabled = !es.length;
-    if (!ta.value.trim()) { prev.textContent = 'Pega el enlace de Twitch de cada VOD con dónde empieza («?t=» o «desde 5:10») y dónde acaba («hasta 3:02:00»). Se ajustan solos el VOD 1 y los demás (cada uno justo detrás del anterior, o en «yt 1:30:00» si lo pones). Los saltos que ya tengas se mantienen.'; return; }
+    if (!ta.value.trim()) { prev.textContent = 'Pega el enlace de Twitch de cada VOD con dónde empieza («?t=» o «desde 5:10») y dónde acaba («hasta 3:02:00»). Detrás de «| YouTube desde … hasta …» puedes poner el minuto del vídeo de YouTube donde va ese trozo (si no, cada VOD va justo detrás del anterior). Se ajustan solos el VOD 1 y los demás. Los saltos que ya tengas se mantienen.'; return; }
     if (!es.length) { prev.textContent = 'No encuentro enlaces de Twitch (twitch.tv/videos/…).'; return; }
     const { map, warn } = assignLinks(es, parts);
-    const lines = map.map((e, k) => e ? `VOD ${k + 1} ← ${e.vodId}: ${e.start != null ? fmtTime(e.start) : 'principio'} → ${e.end != null ? fmtTime(e.end) : 'final'}${e.yt != null ? ` · en el vídeo desde ${fmtTime(e.yt)}` : ''}` : `VOD ${k + 1}: sin enlace (entero, detrás del anterior)`);
+    const lines = map.map((e, k) => e ? `VOD ${k + 1} ← ${e.vodId}: ${e.start != null ? fmtTime(e.start) : 'principio'} → ${e.end != null ? fmtTime(e.end) : 'final'}${e.yt != null ? ` · en el vídeo ${fmtTime(e.yt)}${e.ytEnd != null ? ' → ' + fmtTime(e.ytEnd) : ''}` : ''}` : `VOD ${k + 1}: sin enlace (entero, detrás del anterior)`);
     prev.textContent = lines.join('\n') + (warn.length ? '\n⚠ ' + warn.join('\n⚠ ') : '');
   };
   ta.addEventListener('input', () => { ui.tw = ta.value; paint(); });

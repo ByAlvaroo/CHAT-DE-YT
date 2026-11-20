@@ -3,7 +3,7 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxzguWb/jCjJ1myt+D2TglbPQ42Pp72FE1QCVaGcqO2dUJZU917oPTjCwtf0PDwO2sz4JAUK+FmN81VHjsp6r+J9K8eNrVwQPM1ApYmiju2fkRdCohzl43b0xCadc1Ah1DxYDBtHZfovFsfH1Dl2cN7tsf8FpvN8RzwQtwlw/0ALVgsiR0hdf/jAr7YXrwkX3MQFLZfJIKOKaVvzn+h4zjXWJTcxghEMoDfmukLxC/eAifpCVdYCLvnQxkvhPFAEqR6Z5608mOPA+RjlTztnQ+f5KGuxNxlbkHpctcqjrKvJPWbciH+tnDSlB26A8h4FTO66EpE5E0bnVOJC3cr/4fQIDAQAB",
   "name": "Chat Replay · Twitch en YouTube",
   "short_name": "Chat Replay",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Muestra el chat de Twitch (descargado con TwitchDownloader) sincronizado con los vídeos de YouTube. Hecho por @byalvaro__",
   "icons": {
     "16": "icons/icon16.png",

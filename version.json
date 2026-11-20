@@ -1,7 +1,7 @@
 {
-  "version": "1.6.0",
-  "title": "Actualizaciones desde GitHub",
-  "notes": "- Aviso en YouTube cuando hay una versión nueva (Descargar → descomprimir → Recargar)\n- Pegar del Sincronizador con varios VODs (VOD 1 / VOD 2, CORTE, SALTO ATRÁS)\n- Ajustar con enlaces de Twitch y contraseña al iniciar sesión",
+  "version": "1.6.1",
+  "title": "Enlaces de Twitch con minuto de YouTube",
+  "notes": "- «Ajustar con enlaces de Twitch» acepta el minuto de Twitch y el de YouTube:\n  https://www.twitch.tv/videos/… desde 1:23:26.100 hasta 9:28:30.033 | YouTube desde 0:00:00.000 hasta 8:05:03.934\n- Avisa si en Twitch y en YouTube no dura lo mismo (hay cortes)\n- Incluye todo lo de la 1.6.0: avisos de actualización desde GitHub",
   "zip": "chat-replay-youtube.zip",
-  "date": "2026-11-19"
+  "date": "2026-11-20"
 }

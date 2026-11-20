@@ -482,7 +482,7 @@ function applyTwitch(text) {
       const jumps = (c.cuts || []).filter(x => x.at >= start && x.at < end).reduce((a, x) => a + x.jump, 0);
       cursor = Math.max(cursor, target + Math.max(0, end - start - jumps));
       P[k] = c;
-      if (e) msgs.push(`VOD ${k + 1}: ${fmtTime(start)} → ${fmtTime(end)} (en el vídeo desde ${fmtTime(target)})`);
+      if (e) msgs.push(`VOD ${k + 1}: ${fmtTime(start)} → ${fmtTime(end)} (en el vídeo ${fmtTime(target)} → ${fmtTime(target + Math.max(0, end - start - jumps))})`);
     });
     Sound.play('success'); saveLinkDb(); remerge(); broadcastState();
   }
@@ -1316,14 +1316,14 @@ function openUser(u) {
 }
 
 function twForm() {
-  const ta = h('textarea', { class: 'twl-ta', spellcheck: 'false', placeholder: 'https://www.twitch.tv/videos/111?t=0h5m10s hasta 3:02:00\nhttps://www.twitch.tv/videos/222 desde 0:00 hasta 1:30:00' });
+  const ta = h('textarea', { class: 'twl-ta', spellcheck: 'false', placeholder: 'https://www.twitch.tv/videos/111 desde 1:23:26.100 hasta 9:28:30.033 | YouTube desde 0:00:00.000 hasta 8:05:03.934' });
   ta.value = twDraft;
   ta.addEventListener('input', () => { twDraft = ta.value; });
   const go = h('button', { class: 'btn primary sm', onclick: () => { const v = ta.value; twOpen = false; twDraft = ''; if (!applyTwitch(v)) { twOpen = true; twDraft = v; } } }, '🔗 Ajustar');
   const det = h('details', { class: 'twl', open: twOpen || undefined },
     h('summary', { text: '🔗 Ajustar con enlaces de Twitch' }),
     ta,
-    h('div', { class: 'hint', text: 'Un enlace por VOD, en orden. Inicio: ?t= del enlace o «desde 5:10»; final: «hasta 3:02:00» (o pega otra vez el enlace con ?t= del final). Opcional «yt 1:30:00» si ese VOD empieza en ese minuto del vídeo; si no, va justo detrás del anterior.' }),
+    h('div', { class: 'hint', text: 'Un enlace por VOD, en orden. Inicio: ?t= del enlace o «desde 5:10»; final: «hasta 3:02:00» (o pega otra vez el enlace con ?t= del final). Opcional «| YouTube desde 0:00:00 hasta 8:05:03» (o «yt 1:30:00») con el minuto del vídeo donde va ese VOD; si no, va justo detrás del anterior.' }),
     h('div', { class: 'toolbar' }, go));
   det.addEventListener('toggle', () => { twOpen = det.open; });
   return det;

@@ -68,6 +68,11 @@ https://www.twitch.tv/videos/2345678902 desde 0:00 hasta 1:30:00
 - **Final**: `hasta 3:02:00`, o pega otra vez el mismo enlace con el `?t=` del final en la línea siguiente.
 - También vale `0:05:10 - 3:02:00`, o poner `desde … hasta …` en la línea de debajo del enlace.
 - Opcional `yt 1:30:00`: ese VOD empieza en ese minuto del vídeo de YouTube. Si no lo pones, cada VOD va **justo detrás del anterior**.
+- **Minuto de Twitch y de YouTube (1.6.1)**: detrás de `|` pon dónde va ese trozo en el vídeo de YouTube, y el chat de YouTube va igual que el de Twitch:
+  ```
+  https://www.twitch.tv/videos/2933789253 desde 1:23:26.100 hasta 9:28:30.033 | YouTube desde 0:00:00.000 hasta 8:05:03.934
+  ```
+  Vale con milésimas. Si falta uno de los finales se deduce del otro. Si en Twitch y en YouTube no dura lo mismo (más de 1 s de diferencia) te avisa: eso es que hay cortes en medio y para eso está «Pegar del Sincronizador».
 - Cada enlace se empareja con su chat por el número del VOD (si el archivo lo trae) y, si no, por orden.
 
 Se ajustan solos el VOD 1 y los demás (desfase, «desde/hasta» y posición de cada VOD). Los saltos que ya tengas se mantienen.
