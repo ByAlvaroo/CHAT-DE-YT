@@ -22,6 +22,8 @@ export const DEFAULTS = {
   uiFont: 'sans',           // sans | serif
   motion: 'system',         // system | reduced
   showCredits: true,
+  advanced: false,          // Opciones avanzadas: false = solo los ajustes básicos
+  keys: null,               // atajos personalizados { acción: 'Alt+C' } (null = los de siempre)
   // Posición
   enabled: true,
   autoOpen: false,          // el chat siempre empieza cerrado; se abre con el botón azul

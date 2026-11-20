@@ -1,7 +1,7 @@
 // Cuenta: tus ajustes y la sincronización de cada vídeo se guardan en tu cuenta de Google de Chrome (chrome.storage.sync),
 // así se recuperan solos al reinstalar la extensión o en otro ordenador con la misma cuenta de Chrome.
 import * as DB from './db.js';
-import { DEFAULTS } from './settings.js';
+import { DEFAULTS, loadSettings } from './settings.js';
 import { BYALVARO } from './byalvaro.js';
 
 export const AKEY = 'tcr_account';          // { name, slug, at } — SOLO en este navegador (local): nadie empieza con una sesión iniciada
@@ -178,46 +178,129 @@ async function checkPw(rec, pass) {
   return d === 0;
 }
 const wait = ms => new Promise(r => setTimeout(r, ms));
-/** Antes de iniciar sesión: ¿existe esa cuenta? ¿tiene ya contraseña? */
+/* ---------- Cuentas gestionadas desde GitHub (cuentas.json) ----------
+ * En el repositorio de las actualizaciones (Ajustes → Acerca de) puede haber un cuentas.json:
+ *   { "cuentas": { "pepe": { "salt": "…", "it": 150000, "hash": "…" }, "ana": { "bloqueada": true } } }
+ * Si una cuenta sale ahí, manda su contraseña (el administrador la cambia editando el archivo).
+ * Solo se guarda la huella (nunca la contraseña): se genera en Ajustes → Tu cuenta → «Línea para cuentas.json».
+ */
+export const REMOTE_KEY = 'tcr_remote_accounts';
+const repoOfS = s => { const r = String(s || '').trim().replace(/^https?:\/\/(www\.)?github\.com\//i, '').replace(/\.git$/i, '').replace(/\/(releases|tree|blob).*$/i, '').replace(/\/+$/, ''); return /^[\w.-]+\/[\w.-]+$/.test(r) ? r : ''; };
+export async function remoteAccounts(force) {
+  const S = await loadSettings();
+  const repo = repoOfS(S.updRepo);
+  let c = null; try { c = (await chrome.storage.local.get(REMOTE_KEY))[REMOTE_KEY] || null; } catch {}
+  if (!repo) return { ok: false, error: 'Sin repositorio', map: {} };
+  if (!force && c && c.repo === repo && Date.now() - c.at < 10 * 60e3) return c;
+  try {
+    const r = await fetch(`https://raw.githubusercontent.com/${repo}/HEAD/cuentas.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.status === 404) { c = { ok: true, none: true, repo, at: Date.now(), map: {} }; }
+    else if (!r.ok) throw new Error('GitHub ' + r.status);
+    else {
+      const j = await r.json();
+      const src = (j && (j.cuentas || j.accounts)) || {};
+      const map = {};
+      for (const [name, v] of Object.entries(src)) { const sl = slugOf(name); if (sl && v && typeof v === 'object') map[sl] = v; }
+      c = { ok: true, repo, at: Date.now(), map };
+    }
+  } catch (e) { c = c && c.repo === repo ? { ...c, stale: true, error: e.message } : { ok: false, repo, at: Date.now(), error: e.message, map: {} }; }
+  try { await chrome.storage.local.set({ [REMOTE_KEY]: c }); } catch {}
+  return c;
+}
+/** Línea para pegar en cuentas.json (el administrador) */
+export async function makeEntry(name, pass) {
+  const slug = slugOf(name);
+  if (!slug) throw new Error('Escribe un nombre.');
+  if (String(pass || '').length < MIN_PW) throw new Error(`La contraseña tiene que tener al menos ${MIN_PW} caracteres.`);
+  const salt = crypto.getRandomValues(new Uint8Array(16)), it = 150000;
+  return { slug, entry: { salt: b64(salt), it, hash: await hashPw(pass, salt, it) } };
+}
+
+const KNOWN = 'tcr_known_accounts';
+async function remember(name, slug) {
+  try { const l = ((await chrome.storage.local.get(KNOWN))[KNOWN] || []).filter(x => x.slug !== slug); l.unshift({ name, slug, at: Date.now() }); await chrome.storage.local.set({ [KNOWN]: l.slice(0, 12) }); } catch {}
+}
+export async function known() { try { return (await chrome.storage.local.get(KNOWN))[KNOWN] || []; } catch { return []; } }
+export async function forgetKnown(slug) { try { const l = ((await chrome.storage.local.get(KNOWN))[KNOWN] || []).filter(x => x.slug !== slug); await chrome.storage.local.set({ [KNOWN]: l }); } catch {} }
+
+/** Antes de iniciar sesión: ¿existe esa cuenta? ¿tiene contraseña? ¿la gestiona GitHub? */
 export async function check(name) {
   const slug = slugOf(name);
   if (!slug) return { slug: '', exists: false, hasPass: false };
-  const [meta, pw] = await Promise.all([chrome.storage.sync.get(mk(slug)).then(o => o[mk(slug)] || null).catch(() => null), getPw(slug)]);
-  return { slug, exists: !!(meta && meta.n), hasPass: !!pw };
+  const [meta, pw, rem] = await Promise.all([chrome.storage.sync.get(mk(slug)).then(o => o[mk(slug)] || null).catch(() => null), getPw(slug), remoteAccounts(false)]);
+  const r = rem.map[slug];
+  return { slug, exists: !!(meta && meta.n) || !!pw || !!(r && r.hash), hasPass: !!pw || !!(r && r.hash), github: !!(r && r.hash), blocked: !!(r && r.bloqueada) };
 }
 /** Cambia (o pone por primera vez) la contraseña de la cuenta con la sesión iniciada */
 export async function changePassword(oldPass, newPass) {
   const a = await getAccount();
   if (!a) throw new Error('Inicia sesión primero.');
+  const rem = await remoteAccounts(true);
+  if (rem.map[a.slug] && rem.map[a.slug].hash) throw new Error('La contraseña de esta cuenta la gestiona el administrador en GitHub (cuentas.json): pídele que la cambie.');
   const rec = await getPw(a.slug);
   if (rec && !(await checkPw(rec, oldPass))) { await wait(700); throw new Error('La contraseña actual no es correcta.'); }
   await setPw(a.slug, newPass);
+  const cur = await getPw(a.slug);
+  await chrome.storage.local.set({ [AKEY]: { ...a, pwh: cur && cur.hash } });
   return { ok: true, created: !rec };
 }
 
-export async function login(name, pass) {
+/**
+ * mode: 'login' (la cuenta tiene que existir) · 'create' (el nombre tiene que estar libre) · 'auto' (como antes)
+ */
+export async function login(name, pass, mode = 'auto') {
   const clean = String(name || '').trim().slice(0, 40);
   const slug = slugOf(clean);
   if (!slug) throw new Error('Escribe un nombre (letras o números).');
-  const rec = await getPw(slug);
-  let created = false;
-  if (rec) {
+  const rem = await remoteAccounts(true);
+  const r = rem.map[slug];
+  if (r && r.bloqueada) throw new Error('Esta cuenta está bloqueada por el administrador.');
+  const [rec, metaO] = await Promise.all([getPw(slug), chrome.storage.sync.get(mk(slug)).catch(() => ({}))]);
+  const hasProfile = !!(metaO && metaO[mk(slug)] && metaO[mk(slug)].n);
+  let created = false, viaGithub = false;
+  if (r && r.hash) {
+    // la contraseña la manda el archivo de GitHub
+    if (!pass) throw new Error('Escribe la contraseña de esta cuenta.');
+    if (!(await checkPw(r, pass))) { await wait(700); throw new Error('Contraseña incorrecta.'); }
+    await chrome.storage.sync.set({ [pwKey(slug)]: { v: 1, salt: r.salt, it: r.it || 150000, hash: r.hash, at: Date.now(), github: true } });
+    viaGithub = true;
+    if (mode === 'create' && (rec || hasProfile)) throw new Error('Ese nombre ya tiene cuenta: usa «Iniciar sesión».');
+  } else if (mode === 'create') {
+    if (rec || hasProfile) throw new Error('Ese nombre ya tiene cuenta: usa «Iniciar sesión» (o elige otro nombre).');
+    if (String(pass || '').length < MIN_PW) throw new Error(`Elige una contraseña de al menos ${MIN_PW} caracteres.`);
+    await setPw(slug, pass); created = true;
+  } else if (rec) {
     if (!pass) throw new Error('Escribe la contraseña de esta cuenta.');
     if (!(await checkPw(rec, pass))) { await wait(700); throw new Error('Contraseña incorrecta.'); }
-  } else {
-    // cuenta sin contraseña (nueva o de una versión anterior): se crea ahora con la que escribas
-    if (String(pass || '').length < MIN_PW) throw new Error(`Elige una contraseña para tu cuenta (al menos ${MIN_PW} caracteres).`);
+  } else if (hasProfile || mode === 'auto') {
+    // cuenta de una versión anterior sin contraseña: se le pone ahora la que escribas
+    if (String(pass || '').length < MIN_PW) throw new Error(`Esta cuenta aún no tiene contraseña: elige una (al menos ${MIN_PW} caracteres).`);
     await setPw(slug, pass); created = true;
+  } else {
+    throw new Error('No hay ninguna cuenta con ese nombre. Créala en «Crear cuenta».');
   }
+  const prev = await getAccount();
+  if (prev && prev.slug !== slug) await push(false).catch(() => {});      // guarda la cuenta anterior antes de cambiar
   const prof = await readProfile(slug);
   let preset = false;
   if (prof) await applyProfile(prof);
-  // cuenta nueva: «ByAlvaro» empieza con su configuración (salvo que este navegador ya esté configurado: entonces se sube esa)
   else if (isByAlvaro(slug) && !(await isCustomized())) preset = await applyByAlvaro();
-  await chrome.storage.local.set({ [AKEY]: { name: clean, slug, at: Date.now() } });
+  const pw = await getPw(slug);
+  await chrome.storage.local.set({ [AKEY]: { name: clean, slug, at: Date.now(), pwh: pw && pw.hash } });
   await dropSyncedSession();
-  const r = await push(!prof);
-  return { slug, name: clean, existed: !!prof, preset, created, ...r };
+  await remember(clean, slug);
+  const res = await push(!prof);
+  return { slug, name: clean, existed: !!prof, preset, created, github: viaGithub, ...res };
+}
+/** Si el administrador cambia la contraseña o bloquea la cuenta en GitHub, la sesión abierta se cierra */
+export async function verifySession() {
+  const a = await getAccount();
+  if (!a) return { ok: true };
+  const rem = await remoteAccounts(false);
+  if (!rem.ok || rem.stale) return { ok: true };
+  const r = rem.map[a.slug];
+  if (r && (r.bloqueada || (r.hash && a.pwh && r.hash !== a.pwh))) { await logout(); return { ok: false, loggedOut: true, reason: r.bloqueada ? 'blocked' : 'password' }; }
+  return { ok: true };
 }
 export async function logout() { await chrome.storage.local.remove(AKEY); await dropSyncedSession(); await setStatus({ ok: true, loggedOut: true }); }
 export async function status() {
@@ -226,5 +309,8 @@ export async function status() {
   let meta = null;
   if (a) { try { meta = (await chrome.storage.sync.get(mk(a.slug)))[mk(a.slug)] || null; } catch {} }
   const hasPass = a ? !!(await getPw(a.slug)) : false;
-  return { account: a, status: st, meta, hasPass, byalvaro: !!(a && isByAlvaro(a.slug)), preset: hasPreset() };
+  const rem = await remoteAccounts(false).catch(() => ({ map: {} }));
+  const github = !!(a && rem.map && rem.map[a.slug] && rem.map[a.slug].hash);
+  const knownList = await known();
+  return { account: a, status: st, meta, hasPass, github, known: knownList, remote: { ok: rem.ok, none: !!rem.none, n: Object.keys(rem.map || {}).length, error: rem.error || null, repo: rem.repo || '' }, byalvaro: !!(a && isByAlvaro(a.slug)), preset: hasPreset() };
 }

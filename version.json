@@ -1,8 +1,8 @@
 {
-  "version": "1.7.0",
-  "resumen": "Actualizaciones automáticas: con un clic la extensión se reemplaza sola y YouTube vuelve al mismo minuto, sin descargar nada.",
-  "title": "Actualizaciones automáticas",
-  "notes": "- ⚡ Actualización automática: reemplaza los archivos en la carpeta de la extensión y recarga YouTube en el mismo minuto (sin descargar ningún zip)\n- Al actualizar te pregunta si la quieres automática o manual (y puede recordar tu elección)\n- Cada actualización trae una frase con lo nuevo\n- Incluye la 1.6.1: enlaces de Twitch con minuto de YouTube",
+  "version": "1.8.0",
+  "resumen": "Ajustes básicos o avanzados, atajos de teclado a tu gusto, buscar usuarios del chat y varias cuentas con contraseña.",
+  "title": "Opciones avanzadas, atajos, usuarios y cuentas",
+  "notes": "- Interruptor «Opciones avanzadas»: apagado solo se ven los ajustes básicos (el buscador sigue encontrando todo)\n- Atajos de teclado personalizables en Ajustes → Atajos (más acciones: buscar usuarios, sincronización, corte aquí…)\n- Buscar usuarios en el chat: sus mensajes, quién le menciona o responde y con quién habla más\n- Crear cuenta / iniciar sesión, varias cuentas y cambiar entre ellas\n- Contraseñas gestionadas desde cuentas.json en GitHub (cambiar o bloquear cuentas)",
   "zip": "chat-replay-youtube.zip",
   "date": "2026-11-20"
 }

@@ -106,7 +106,10 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
       case 'acct-get': return { ...(await A.status()), follow: await F.followStatus(), pub: await F.pubStatus(), publisher: await F.isPublisher() };
       case 'acct-check': return { ok: true, ...(await A.check(m.name)) };
       case 'acct-pass': return A.changePassword(m.old, m.pass);
-      case 'acct-login': { const r = await queue(() => A.login(m.name, m.pass)); followCheck(false); return { ok: true, ...r }; }
+      case 'acct-entry': return { ok: true, ...(await A.makeEntry(m.name, m.pass)) };
+      case 'acct-forget': await A.forgetKnown(m.slug); return { ok: true };
+      case 'acct-remote': return A.remoteAccounts(true);
+      case 'acct-login': { const r = await queue(() => A.login(m.name, m.pass, m.mode || 'auto')); followCheck(false); return { ok: true, ...r }; }
       case 'acct-logout': await A.logout(); return { ok: true };
       case 'acct-sync': { await queue(() => A.pull()); return queue(() => A.push(true)); }
       case 'feed-check': return followCheck(true);
@@ -124,12 +127,12 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
 // al arrancar Chrome o instalar/actualizar: se recupera tu configuración y se mira si ByAlvaro ha cambiado algo
 const boot = () => {
   chrome.alarms.create('tcr-feed', { periodInMinutes: 30 });
-  queue(async () => { await A.dropSyncedSession(); if (await A.getAccount()) { await A.pull(); await A.push(false); } });
+  queue(async () => { await A.dropSyncedSession(); await A.verifySession().catch(() => {}); if (await A.getAccount()) { await A.pull(); await A.push(false); } });
   followCheck(false);
 };
 chrome.runtime.onStartup.addListener(boot);
 chrome.runtime.onInstalled.addListener(d => { U.onInstalled(d).catch(() => {}); boot(); });
-chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tcr-feed') followCheck(false); });
+chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tcr-feed') { followCheck(false); A.verifySession().catch(() => {}); } });
 
 /* ---------- Tras una actualización automática: vuelve a YouTube en el mismo minuto del vídeo ---------- */
 (async () => {

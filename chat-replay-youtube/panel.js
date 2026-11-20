@@ -11,6 +11,7 @@ import { loadChat, chatKeyOf, estimateSize } from './shared/loader.js';
 import { groupFiles, mergeChats, partOf, rawToMerged, mergedToRaw } from './shared/parts.js';
 import { parseTwitchLinks, assignLinks } from './shared/twlinks.js';
 import { vodsOf, partPlan } from './shared/sincro.js';
+import { bindings, comboOf } from './shared/keys.js';
 
 const app = document.getElementById('app');
 app.innerHTML = app.innerHTML.replace(/%(\w+)%/g, (m, k) => ICONS[k] || '');
@@ -62,6 +63,7 @@ function onHost(m) {
       break;
     case 'nudge': nudge(m.d); break;
     case 'mark': if (S.bookmarks) addMark(''); break;
+    case 'action': runAction(m.id); break;
     case 'opened': onOpened(); break;
     case 'visibility':
       visible = !!m.visible;
@@ -1310,6 +1312,7 @@ function openUser(u) {
     idx.length ? h('div', { class: 'kv' }, h('span', { text: 'Primer mensaje' }), h('span', { text: fmtTime(ytOf(chat.T[idx[0]])) })) : null,
     h('div', { class: 'field' },
       h('button', { class: 'btn ghost sm', onclick: () => { const l = splitList(S.blockedUsers).filter(x => x !== login); if (!blocked) l.push(login); setS('blockedUsers', l.join(', ')); Sound.play('toggle'); closePop(); toast(blocked ? `${login} vuelve a verse` : `${login} oculto`); } }, blocked ? 'Mostrar usuario' : 'Ocultar usuario'),
+      h('button', { class: 'btn ghost sm', onclick: () => { closePop(); setSearchMode('users'); sUser = u; sUserTab = 'own'; openSearch(); } }, 'Interacciones'),
       h('a', { class: 'btn ghost sm', href: `https://www.twitch.tv/${login}`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ver en Twitch')),
     idx.length > 250 ? h('div', { class: 'hint', text: `Mostrando los últimos 250 de ${fmtNum(idx.length)}` }) : null,
     listEl);
@@ -1489,11 +1492,84 @@ const refreshResults = () => { if (!$('results').hidden) setTimeout(() => runSea
 
 /* ---------- Búsqueda ---------- */
 const qEl = $('q');
-function openSearch() { if (!chat) return; $('searchBar').hidden = false; qEl.focus(); qEl.select(); Sound.play('open'); runSearch(); }
-function closeSearch() { $('searchBar').hidden = true; $('results').hidden = true; }
+let sMode = 'msgs', sUser = null, sUserTab = 'own';
+function setSearchMode(m) {
+  sMode = m; sUser = null;
+  document.querySelectorAll('#sMode button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  qEl.placeholder = m === 'users' ? 'Nombre de usuario' : 'Buscar palabra o from:usuario';
+}
+function openSearch(mode) {
+  if (!chat) return;
+  if (mode && mode !== sMode) { setSearchMode(mode); qEl.value = ''; }
+  $('searchBar').hidden = false; qEl.focus(); qEl.select(); Sound.play('open'); runSearch();
+}
+function closeSearch() { $('searchBar').hidden = true; $('results').hidden = true; sUser = null; }
+/** Mensajes por usuario (se calcula una vez por chat) */
+function userCounts() {
+  if (chat.uCount) return chat.uCount;
+  const c = new Uint32Array(chat.names.length), first = new Int32Array(chat.names.length).fill(-1), last = new Int32Array(chat.names.length).fill(-1);
+  for (let i = 0; i < chat.U.length; i++) { const u = chat.U[i]; c[u]++; if (first[u] < 0) first[u] = i; last[u] = i; }
+  return (chat.uCount = { c, first, last });
+}
+function plainL(i) { if (!chat.plainLower) chat.plainLower = new Array(chat.T.length); let p = chat.plainLower[i]; if (p === undefined) p = chat.plainLower[i] = plain(i).toLowerCase(); return p; }
+/** Búsqueda de usuarios: lista por nombre (más activos primero) */
+function searchUsers(q) {
+  const res = $('results'), { c, first, last } = userCounts();
+  const ql = q.toLowerCase().replace(/^@/, '');
+  const us = [];
+  for (let u = 0; u < chat.names.length; u++) {
+    if (!c[u]) continue;
+    if (ql && !chat.logins[u].includes(ql) && !String(chat.names[u]).toLowerCase().includes(ql)) continue;
+    us.push(u);
+  }
+  us.sort((a, b) => (ql ? (chat.logins[a] === ql ? -1 : 0) - (chat.logins[b] === ql ? -1 : 0) : 0) || c[b] - c[a]);
+  $('qCount').textContent = `${fmtNum(us.length)} usuario${us.length === 1 ? '' : 's'}`;
+  const frag = document.createDocumentFragment();
+  if (!ql) frag.append(h('div', { class: 'more', text: 'Los que más han escrito en este directo. Escribe un nombre para filtrar.' }));
+  for (const u of us.slice(0, 200)) {
+    frag.append(h('div', { class: 'urow', onclick: () => { sUser = u; sUserTab = 'own'; Sound.play('click'); runSearch(); } },
+      h('span', { class: 'un', style: `color:${nameColor(last[u])}`, text: chat.names[u] }),
+      h('span', { class: 'uc', text: `${fmtNum(c[u])} msg` }),
+      h('span', { class: 'ut', text: `${fmtTime(ytOf(chat.T[first[u]]))} → ${fmtTime(ytOf(chat.T[last[u]]))}` })));
+  }
+  if (us.length > 200) frag.append(h('div', { class: 'more', text: `…y ${fmtNum(us.length - 200)} más. Afina el nombre.` }));
+  if (!us.length) frag.append(h('div', { class: 'more', text: 'Nadie con ese nombre en este chat.' }));
+  res.replaceChildren(frag); res.hidden = false;
+}
+/** Un usuario: sus mensajes y los que le mencionan o le responden */
+function showUser(u) {
+  const res = $('results'), login = chat.logins[u], at = '@' + login;
+  const own = [], about = [];
+  for (let i = 0; i < chat.T.length; i++) {
+    if (chat.U[i] === u) { own.push(i); continue; }
+    const rep = chat.P && chat.P[i] >= 0 && chat.U[chat.P[i]] === u;
+    if (rep || plainL(i).includes(at)) about.push(i);
+  }
+  const withWho = new Map();
+  for (const i of about) withWho.set(chat.U[i], (withWho.get(chat.U[i]) || 0) + 1);
+  for (const i of own) { const m = plainL(i).match(/@([a-z0-9_]{3,25})/g); if (m) for (const x of m) { const v = chat.logins.indexOf(x.slice(1)); if (v >= 0 && v !== u) withWho.set(v, (withWho.get(v) || 0) + 1); } }
+  const top = [...withWho.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const list = sUserTab === 'own' ? own : about;
+  $('qCount').textContent = `${fmtNum(list.length)} mensaje${list.length === 1 ? '' : 's'}`;
+  const tab = (id, txt) => h('button', { class: sUserTab === id ? 'on' : '', onclick: () => { sUserTab = id; Sound.play('click'); showUser(u); } }, txt);
+  const last = own.length ? own[own.length - 1] : -1;
+  const frag = document.createDocumentFragment();
+  frag.append(h('div', { class: 'uhead' },
+    h('button', { class: 'btn ghost sm', onclick: () => { sUser = null; Sound.play('click'); runSearch(); } }, '← Usuarios'),
+    h('b', { style: last >= 0 ? `color:${nameColor(last)}` : '', text: chat.names[u] }),
+    h('button', { class: 'btn ghost sm', onclick: () => openUser(u) }, 'Tarjeta')));
+  frag.append(h('div', { class: 'useg' }, tab('own', `Sus mensajes (${fmtNum(own.length)})`), tab('about', `Le mencionan o responden (${fmtNum(about.length)})`)));
+  if (top.length) frag.append(h('div', { class: 'more' }, 'Habla más con: ', ...top.map(([v, n], k) => [k ? ' · ' : '', h('a', { href: '#', class: 'ulink', onclick: e => { e.preventDefault(); sUser = v; sUserTab = 'own'; runSearch(); }, text: `${chat.names[v]} (${n})` })]).flat()));
+  for (const i of list.slice(0, 400)) frag.append(renderMsg(i, false, { ts: true, query: sUserTab === 'about' ? login : '', pickBtn: true }));
+  if (list.length > 400) frag.append(h('div', { class: 'more', text: `Mostrando los primeros 400 de ${fmtNum(list.length)}.` }));
+  if (!list.length) frag.append(h('div', { class: 'more', text: sUserTab === 'own' ? 'No ha escrito en este chat.' : 'Nadie le ha mencionado ni respondido.' }));
+  res.replaceChildren(frag); res.hidden = false;
+}
 const runSearch = debounce(() => {
-  const res = $('results'); res.replaceChildren();
+  const res = $('results');
   let q = qEl.value.trim();
+  if (chat && sMode === 'users') { if (sUser != null) showUser(sUser); else searchUsers(q); return; }
+  res.replaceChildren();
   if (!chat || q.length < 2) { $('qCount').textContent = ''; res.hidden = true; return; }
   let from = null; const m = q.match(/^from:(\S+)\s*(.*)$/i);
   if (m) { from = m[1].toLowerCase().replace(/^@/, ''); q = m[2].trim(); }
@@ -1512,7 +1588,8 @@ const runSearch = debounce(() => {
   if (!hits.length) frag.append(h('div', { class: 'more', text: 'Sin resultados.' }));
   res.append(frag); res.hidden = false;
 }, 220);
-qEl.addEventListener('input', runSearch);
+qEl.addEventListener('input', () => { if (sMode === 'users') sUser = null; runSearch(); });
+document.querySelectorAll('#sMode button').forEach(b => b.addEventListener('click', () => { Sound.play('click'); setSearchMode(b.dataset.m); qEl.focus(); runSearch(); }));
 qEl.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSearch(); Sound.play('close'); } });
 
 /* ---------- Clics ---------- */
@@ -1556,12 +1633,33 @@ app.addEventListener('click', e => {
 function openSettings(section) { Sound.play('open'); send({ type: 'openSettings', section: section || '' }); }
 
 /* ---------- Teclado ---------- */
+/** Acciones de los atajos (personalizables en Ajustes → Atajos) */
+function runAction(id) {
+  switch (id) {
+    case 'toggle': send({ type: 'key', code: 'KeyC', alt: true }); break;
+    case 'back1': nudge(-1); break;
+    case 'fwd1': nudge(1); break;
+    case 'back5': nudge(-5); break;
+    case 'fwd5': nudge(5); break;
+    case 'mark': if (S.bookmarks) addMark(''); else toast('Activa los marcadores en Ajustes → Extras'); break;
+    case 'search': openSearch(); break;
+    case 'users': openSearch('users'); break;
+    case 'sync': if (chat) { if (popEl.hidden) openSync(); else closePop(); } break;
+    case 'pick': if (chat) startPick('delta'); break;
+    case 'cutHere': if (chat) cutHere(); break;
+    case 'settings': openSettings(''); break;
+    case 'redownload': redownload(); break;
+    case 'scrollEnd': if (paused) resume(); scrollBottom(0); break;
+  }
+}
 document.addEventListener('keydown', e => {
   const typing = e.target.closest && e.target.closest('input,textarea,select');
-  if (e.altKey && (e.code === 'Comma' || e.code === 'Period')) { e.preventDefault(); nudge((e.code === 'Comma' ? -1 : 1) * (e.shiftKey ? 5 : 1)); return; }
-  if (e.altKey && e.code === 'KeyC') { e.preventDefault(); send({ type: 'key', code: 'KeyC', alt: true }); return; }
-  if (e.altKey && e.code === 'KeyB') { e.preventDefault(); if (S.bookmarks) addMark(''); return; }
-  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') { e.preventDefault(); openSearch(); return; }
+  const combo = comboOf(e);
+  if (combo && !typing || combo && (e.altKey || e.ctrlKey || e.metaKey || /^F\d/.test(e.code))) {
+    const B = bindings(S);
+    const id = Object.keys(B).find(k => B[k] && B[k] === combo);
+    if (id) { e.preventDefault(); e.stopPropagation(); runAction(id); return; }
+  }
   if (e.key === 'Escape') { if (pickMode) stopPick(); else if (!popEl.hidden) closePop(); else if (!$('searchBar').hidden) closeSearch(); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   if (['Space', 'KeyK', 'KeyJ', 'KeyL', 'ArrowLeft', 'ArrowRight', 'KeyM', 'KeyF'].includes(e.code)) { e.preventDefault(); send({ type: 'key', code: e.code }); }

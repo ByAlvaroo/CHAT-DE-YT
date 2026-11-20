@@ -517,11 +517,24 @@
     const t = e.target;
     if (t && t.closest && t.closest('input, textarea, [contenteditable=""], [contenteditable="true"]')) return;
     if (e.key === 'Escape' && modal && modal.style.display !== 'none') { closeModal(); return; }
-    if (!e.altKey || e.ctrlKey || e.metaKey) return;
-    if (e.code === 'KeyC') { e.preventDefault(); e.stopPropagation(); toggle(); }
-    else if (e.code === 'KeyB') { e.preventDefault(); e.stopPropagation(); post({ type: 'mark' }); }
-    else if (e.code === 'Comma' || e.code === 'Period') { e.preventDefault(); e.stopPropagation(); post({ type: 'nudge', d: (e.code === 'Comma' ? -1 : 1) * (e.shiftKey ? 5 : 1) }); }
+    // atajos (personalizables en Ajustes → Atajos; copia de shared/keys.js)
+    const combo = keyCombo(e);
+    if (!combo || combo === 'Ctrl+KeyF') return;          // Ctrl+F en YouTube es el «Buscar» del navegador
+    if (!/^(Ctrl|Alt|Meta)\+|\+(Ctrl|Alt|Meta)\+/.test(combo) && !/(^|\+)F\d{1,2}$/.test(combo)) return;
+    const B = { ...KEY_DEFAULTS, ...(S.keys || {}) };
+    const id = Object.keys(B).find(k => B[k] && B[k] === combo);
+    if (!id) return;
+    e.preventDefault(); e.stopPropagation();
+    if (id === 'toggle') toggle();
+    else if (id === 'settings') openModal('');
+    else { if (!open && id !== 'redownload') toggle(true); post({ type: 'action', id }); }
   }, true);
+  const KEY_DEFAULTS = { toggle: 'Alt+KeyC', back1: 'Alt+Comma', fwd1: 'Alt+Period', back5: 'Alt+Shift+Comma', fwd5: 'Alt+Shift+Period', mark: 'Alt+KeyB', search: 'Ctrl+KeyF', users: 'Alt+KeyU' };
+  function keyCombo(e) {
+    if (!e.code || ['Control', 'Alt', 'Shift', 'Meta', 'AltGraph', 'OS'].includes(e.key)) return null;
+    const p = []; if (e.ctrlKey) p.push('Ctrl'); if (e.altKey) p.push('Alt'); if (e.shiftKey) p.push('Shift'); if (e.metaKey) p.push('Meta');
+    p.push(e.code); return p.join('+');
+  }
 
   try {
     chrome.runtime.onMessage.addListener((m, _s, reply) => {
@@ -540,7 +553,7 @@
     updClose();
     updEl = document.createElement('div');
     updEl.id = 'tcr-update';
-    updEl.style.cssText = 'position:fixed;top:68px;right:20px;z-index:2147483646;';
+    updEl.style.cssText = 'position:fixed;top:68px;right:20px;z-index:2147482000;';
     const root = updEl.attachShadow({ mode: 'open' });
     root.innerHTML = `<style>
       :host{all:initial}

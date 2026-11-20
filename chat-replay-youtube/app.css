@@ -142,3 +142,28 @@ a { color: var(--accent); }
 html.reduced *, html.reduced *::before, html.reduced *::after { animation-duration: 0s !important; transition-duration: 0s !important; }
 html.reduced #splash { display: none !important; }
 @media (max-width: 760px) { #side { width: 200px; } #content { padding: 20px; } .txt { min-width: 160px; } input[type=range] { width: 140px; } }
+
+/* Opciones avanzadas */
+.advsw { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 7px 10px; border: 1px solid var(--line2); border-radius: 8px; background: transparent; color: var(--fg2, var(--fg)); font: inherit; font-size: 13px; cursor: pointer; }
+.advsw:hover { background: var(--ctl); }
+.advsw .tg { pointer-events: none; transform: scale(.85); transform-origin: right center; }
+.advtag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; vertical-align: 1px; background: var(--ctl); color: var(--muted); border: 1px solid var(--line2); }
+
+/* Atajos personalizados */
+.card.keyed { padding: 4px 0; }
+.krow { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 9px 16px; border-top: 1px solid var(--line); }
+.krow:first-child { border-top: 0; }
+.krow.rec { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.krow .kt { font-size: 13.5px; }
+.krow .kb { display: flex; gap: 6px; }
+.kbds { display: inline-flex; align-items: center; gap: 4px; }
+.kbds .plus { color: var(--muted); font-size: 11px; }
+@media (max-width: 760px) { .krow { grid-template-columns: 1fr; gap: 6px; } }
+
+/* Varias cuentas */
+.accts { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.acct { display: flex; align-items: center; border: 1px solid var(--line2); border-radius: 999px; background: var(--ctl); }
+.acct-b { display: flex; align-items: center; gap: 8px; border: 0; background: none; color: var(--fg); font: inherit; font-size: 13px; padding: 4px 6px 4px 4px; cursor: pointer; }
+.acct-b .av { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.acct-x { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 4px 10px 4px 4px; font-size: 12px; }
+.acct-x:hover { color: var(--fg); }

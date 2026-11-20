@@ -10,6 +10,7 @@ import { getFolderFiles, parseLink, folderIdOf } from './shared/drive.js';
 import { groupFiles } from './shared/parts.js';
 import { parseTwitchLinks, assignLinks } from './shared/twlinks.js';
 import { parsePlan, vodsOf, partPlan } from './shared/sincro.js';
+import { ACTIONS, DEFAULTS as KDEF, bindings, comboOf, keysOf, fmtCombo, validCombo, RESERVED } from './shared/keys.js';
 import { exportBackup, importBackup } from './shared/backup.js';
 
 const qs = new URLSearchParams(location.hash.slice(1));
@@ -52,11 +53,14 @@ const pct = v => Math.round(v * 100) + ' %';
 const SECTIONS = [
   { id: 'account', grp: 'Cuenta', icon: 'user', title: 'Tu cuenta', custom: renderAccount, kw: 'iniciar sesión login nombre byalvaro sincronizar google restablecer publicar github seguir' },
   { id: 'general', grp: 'Configuración', icon: 'gear', title: 'General', groups: [
+    { rows: [
+      { k: 'advanced', t: 'Opciones avanzadas', d: 'Desactivado: solo se ven los ajustes básicos, para ir más rápido. Actívalo para verlos todos. El buscador siempre encuentra todo.', type: 'toggle', kw: 'avanzado experto todas básico simple' }
+    ] },
     { title: 'Apariencia', rows: [
       { k: 'uiTheme', t: 'Tema', type: 'seg', icons: true, opts: [['system', 'monitor', 'Sistema'], ['light', 'sun', 'Claro'], ['dark', 'moon', 'Oscuro']], kw: 'claro oscuro modo' },
-      { k: 'uiFont', t: 'Fuente de la interfaz', d: 'Fuente para los menús, barras y paneles.', type: 'select', opts: [['sans', 'Sans (estilo Claude)'], ['serif', 'Serif (estilo Claude)'], ['system', 'Sistema']], font: true },
-      { k: 'motion', t: 'Movimiento', d: 'Reduce la animación del chat y de los menús (ahorra recursos).', type: 'seg', opts: [['system', 'Sistema'], ['reduced', 'Reducido']], kw: 'animaciones' },
-      { k: 'showCredits', t: 'Animación de bienvenida', d: 'Muestra «Hecho por @byalvaro__» al abrir este menú.', type: 'toggle', kw: 'créditos' }
+      { adv: 1, k: 'uiFont', t: 'Fuente de la interfaz', d: 'Fuente para los menús, barras y paneles.', type: 'select', opts: [['sans', 'Sans (estilo Claude)'], ['serif', 'Serif (estilo Claude)'], ['system', 'Sistema']], font: true },
+      { adv: 1, k: 'motion', t: 'Movimiento', d: 'Reduce la animación del chat y de los menús (ahorra recursos).', type: 'seg', opts: [['system', 'Sistema'], ['reduced', 'Reducido']], kw: 'animaciones' },
+      { adv: 1, k: 'showCredits', t: 'Animación de bienvenida', d: 'Muestra «Hecho por @byalvaro__» al abrir este menú.', type: 'toggle', kw: 'créditos' }
     ] }
   ] },
   { id: 'chat', grp: 'Configuración', icon: 'chat', title: 'Chat', groups: [
@@ -64,45 +68,45 @@ const SECTIONS = [
       { k: 'chatTheme', t: 'Tema del chat', type: 'select', opts: [['claude', 'Claude oscuro'], ['twitch', 'Twitch'], ['light', 'Claro'], ['oled', 'Negro OLED'], ['glass', 'Cristal (transparente)']], kw: 'colores' },
       { k: 'chatFont', t: 'Fuente del chat', d: 'Por defecto, la serif de Claude.', type: 'select', opts: [['serif', 'Serif (estilo Claude)'], ['sans', 'Sans (estilo Claude)'], ['twitch', 'Twitch (Inter)'], ['system', 'Sistema'], ['mono', 'Monoespaciada']], font: true, kw: 'letra tipografía' },
       { k: 'fontSize', t: 'Tamaño del texto del chat', type: 'seg', opts: [[12, 'Pequeño'], [14, 'Medio'], [17, 'Grande'], [21, 'Enorme']], kw: 'letra' },
-      { k: 'fontSize', t: 'Tamaño exacto del texto', type: 'range', min: 10, max: 28, step: 1, fmt: v => v + ' px' },
-      { k: 'emoteScale', t: 'Tamaño de los emotes', type: 'range', min: 0.5, max: 2.5, step: 0.1, fmt: v => v.toFixed(1).replace('.', ',') + '×' },
-      { k: 'msgGap', t: 'Espacio entre mensajes', type: 'seg', opts: [[1, 'Compacto'], [3, 'Normal'], [7, 'Amplio']] },
+      { adv: 1, k: 'fontSize', t: 'Tamaño exacto del texto', type: 'range', min: 10, max: 28, step: 1, fmt: v => v + ' px' },
+      { adv: 1, k: 'emoteScale', t: 'Tamaño de los emotes', type: 'range', min: 0.5, max: 2.5, step: 0.1, fmt: v => v.toFixed(1).replace('.', ',') + '×' },
+      { adv: 1, k: 'msgGap', t: 'Espacio entre mensajes', type: 'seg', opts: [[1, 'Compacto'], [3, 'Normal'], [7, 'Amplio']] },
       { k: 'showBadges', t: 'Insignias', d: 'Suscriptor, moderador, VIP, Prime…', type: 'toggle' },
       { k: 'showTimestamps', t: 'Marca de tiempo', d: 'Haz clic en la hora de un mensaje para saltar a ese momento.', type: 'toggle', kw: 'hora' },
-      { k: 'boldNames', t: 'Nombres en negrita', type: 'toggle' },
-      { k: 'readableColors', t: 'Colores de nombre legibles', d: 'Aclara los colores demasiado oscuros, como hace Twitch.', type: 'toggle' },
-      { k: 'altBg', t: 'Fondo alterno', d: 'Alterna el fondo de los mensajes para leer mejor.', type: 'toggle' },
-      { k: 'separators', t: 'Líneas separadoras', type: 'toggle' },
-      { k: 'fetchThird', t: 'Emotes de 7TV, BTTV y FFZ', d: 'Si el JSON no los trae incrustados, se descargan del canal.', type: 'toggle', kw: 'emotes' },
-      { k: 'showReplies', t: 'Respuestas en hilo', d: 'Muestra «↪ @usuario: …» encima de cada respuesta. Pulsa para ver el mensaje original.', type: 'toggle', kw: 'responder reply' },
-      { k: 'deletedMode', t: 'Mensajes eliminados', d: 'Los que borraron los moderadores (solo si el archivo los incluye).', type: 'seg', opts: [['strike', 'Tachados'], ['show', 'Normales'], ['hide', 'Ocultos']], kw: 'borrados baneos moderación' }
+      { adv: 1, k: 'boldNames', t: 'Nombres en negrita', type: 'toggle' },
+      { adv: 1, k: 'readableColors', t: 'Colores de nombre legibles', d: 'Aclara los colores demasiado oscuros, como hace Twitch.', type: 'toggle' },
+      { adv: 1, k: 'altBg', t: 'Fondo alterno', d: 'Alterna el fondo de los mensajes para leer mejor.', type: 'toggle' },
+      { adv: 1, k: 'separators', t: 'Líneas separadoras', type: 'toggle' },
+      { adv: 1, k: 'fetchThird', t: 'Emotes de 7TV, BTTV y FFZ', d: 'Si el JSON no los trae incrustados, se descargan del canal.', type: 'toggle', kw: 'emotes' },
+      { adv: 1, k: 'showReplies', t: 'Respuestas en hilo', d: 'Muestra «↪ @usuario: …» encima de cada respuesta. Pulsa para ver el mensaje original.', type: 'toggle', kw: 'responder reply' },
+      { adv: 1, k: 'deletedMode', t: 'Mensajes eliminados', d: 'Los que borraron los moderadores (solo si el archivo los incluye).', type: 'seg', opts: [['strike', 'Tachados'], ['show', 'Normales'], ['hide', 'Ocultos']], kw: 'borrados baneos moderación' }
     ] }
   ] },
   { id: 'layout', grp: 'Configuración', icon: 'layout', title: 'Posición y tamaño', groups: [
     { rows: [
       { k: 'mode', t: 'Vista normal', type: 'seg', opts: [['sidebar', 'Al lado'], ['overlay', 'Encima del vídeo']], kw: 'lateral posición' },
-      { k: 'theaterMode', t: 'Modo cine', type: 'seg', opts: [['sidebar', 'Al lado'], ['overlay', 'Encima del vídeo']] },
+      { adv: 1, k: 'theaterMode', t: 'Modo cine', type: 'seg', opts: [['sidebar', 'Al lado'], ['overlay', 'Encima del vídeo']] },
       { k: 'fullscreenMode', t: 'Pantalla completa', d: '«Al lado»: el vídeo se hace más pequeño y el chat queda fijo a la derecha.', type: 'seg', opts: [['side', 'Al lado (fijo)'], ['overlay', 'Encima del vídeo'], ['hide', 'Ocultar']], kw: 'fullscreen fijo' },
-      { t: 'Ancho del chat en pantalla completa', d: 'También puedes arrastrar el borde izquierdo del chat.', type: 'fsw' },
-      { k: 'sidebarHeight', t: 'Altura del chat lateral', type: 'range', min: 0, max: 1400, step: 20, fmt: v => v ? v + ' px' : 'Igual que el vídeo', kw: 'alto tamaño' },
+      { adv: 1, t: 'Ancho del chat en pantalla completa', d: 'También puedes arrastrar el borde izquierdo del chat.', type: 'fsw' },
+      { adv: 1, k: 'sidebarHeight', t: 'Altura del chat lateral', type: 'range', min: 0, max: 1400, step: 20, fmt: v => v ? v + ' px' : 'Igual que el vídeo', kw: 'alto tamaño' },
       { k: 'autoOpen', t: 'Abrir el chat automáticamente', d: 'Desactivado: el chat siempre empieza cerrado y se abre con el botón azul (o Alt+C).', type: 'toggle' },
-      { k: 'overlayBg', t: 'Opacidad del fondo (encima del vídeo)', type: 'range', min: 0, max: 1, step: 0.05, fmt: pct, kw: 'transparencia' },
-      { k: 'textShadow', t: 'Sombra en el texto (encima del vídeo)', type: 'toggle' },
-      { k: 'autoHideHeader', t: 'Ocultar la barra superior (encima del vídeo)', d: 'Aparece al pasar el ratón. Arrástrala para mover el chat.', type: 'toggle' },
-      { k: 'ghostChat', t: 'Modo cine total', d: 'Con el chat «Encima del vídeo»: se vuelve translúcido y desaparece cuando no mueves el ratón (igual que los controles de YouTube).', type: 'toggle', kw: 'transparente fantasma inmersivo' },
-      { t: 'Ventana superpuesta', d: 'Vuelve a colocar el chat flotante en su sitio inicial.', type: 'button', label: 'Recolocar', act: () => { chrome.storage.local.remove('tcr_overlay'); toast('Posición restablecida'); } }
+      { adv: 1, k: 'overlayBg', t: 'Opacidad del fondo (encima del vídeo)', type: 'range', min: 0, max: 1, step: 0.05, fmt: pct, kw: 'transparencia' },
+      { adv: 1, k: 'textShadow', t: 'Sombra en el texto (encima del vídeo)', type: 'toggle' },
+      { adv: 1, k: 'autoHideHeader', t: 'Ocultar la barra superior (encima del vídeo)', d: 'Aparece al pasar el ratón. Arrástrala para mover el chat.', type: 'toggle' },
+      { adv: 1, k: 'ghostChat', t: 'Modo cine total', d: 'Con el chat «Encima del vídeo»: se vuelve translúcido y desaparece cuando no mueves el ratón (igual que los controles de YouTube).', type: 'toggle', kw: 'transparente fantasma inmersivo' },
+      { adv: 1, t: 'Ventana superpuesta', d: 'Vuelve a colocar el chat flotante en su sitio inicial.', type: 'button', label: 'Recolocar', act: () => { chrome.storage.local.remove('tcr_overlay'); toast('Posición restablecida'); } }
     ] }
   ] },
   { id: 'perf', grp: 'Configuración', icon: 'bolt', title: 'Rendimiento', groups: [
     { rows: [
       { k: 'perfPreset', t: 'Modo de rendimiento', d: 'Menos FPS y animaciones = más potencia libre para el resto del ordenador.', type: 'seg', opts: [['quality', 'Calidad'], ['balanced', 'Equilibrado'], ['saver', 'Ahorro'], ['ultra', 'Ultra ahorro']], extra: 'custom', kw: 'optimización cpu gpu ordenador' },
-      { k: 'fps', t: 'FPS del chat', d: 'Cuántas veces por segundo se actualiza el chat.', type: 'seg', opts: [[8, '8'], [15, '15'], [24, '24'], [30, '30'], [60, '60'], [0, 'Máx']], kw: 'fotogramas' },
-      { k: 'maxMessages', t: 'Mensajes en pantalla', d: 'Menos mensajes = menos memoria y menos trabajo.', type: 'range', min: 30, max: 500, step: 10, fmt: v => v + ' msg' },
-      { k: 'maxPerSecond', t: 'Límite de mensajes por segundo', d: 'En momentos de spam se saltan mensajes para no saturar.', type: 'range', min: 0, max: 60, step: 1, fmt: v => v ? v + ' /s' : 'Sin límite' },
-      { k: 'smoothScroll', t: 'Desplazamiento suave', type: 'toggle', kw: 'animación' },
-      { k: 'animatedEmotes', t: 'Emotes animados', d: 'Desactívalo para congelar los GIF: ahorra mucha CPU.', type: 'toggle', kw: 'gif' },
-      { k: 'pauseOnHover', t: 'Pausar al pasar el ratón', type: 'toggle' },
-      { k: 'fsLite', t: 'Pantalla completa ligera', d: 'En pantalla completa el chat se actualiza como máximo a 30 FPS para que el vídeo vaya fluido.', type: 'toggle', kw: 'fullscreen fluido lag tirones' }
+      { adv: 1, k: 'fps', t: 'FPS del chat', d: 'Cuántas veces por segundo se actualiza el chat.', type: 'seg', opts: [[8, '8'], [15, '15'], [24, '24'], [30, '30'], [60, '60'], [0, 'Máx']], kw: 'fotogramas' },
+      { adv: 1, k: 'maxMessages', t: 'Mensajes en pantalla', d: 'Menos mensajes = menos memoria y menos trabajo.', type: 'range', min: 30, max: 500, step: 10, fmt: v => v + ' msg' },
+      { adv: 1, k: 'maxPerSecond', t: 'Límite de mensajes por segundo', d: 'En momentos de spam se saltan mensajes para no saturar.', type: 'range', min: 0, max: 60, step: 1, fmt: v => v ? v + ' /s' : 'Sin límite' },
+      { adv: 1, k: 'smoothScroll', t: 'Desplazamiento suave', type: 'toggle', kw: 'animación' },
+      { adv: 1, k: 'animatedEmotes', t: 'Emotes animados', d: 'Desactívalo para congelar los GIF: ahorra mucha CPU.', type: 'toggle', kw: 'gif' },
+      { adv: 1, k: 'pauseOnHover', t: 'Pausar al pasar el ratón', type: 'toggle' },
+      { adv: 1, k: 'fsLite', t: 'Pantalla completa ligera', d: 'En pantalla completa el chat se actualiza como máximo a 30 FPS para que el vídeo vaya fluido.', type: 'toggle', kw: 'fullscreen fluido lag tirones' }
     ] }
   ] },
   { id: 'extras', grp: 'Configuración', icon: 'star', title: 'Extras', groups: [
@@ -112,42 +116,42 @@ const SECTIONS = [
       { k: 'showGraph', t: 'Gráfica de actividad en el chat', d: 'Barra arriba del chat con los picos. Clic para saltar, clic derecho para ver el top.', type: 'toggle', kw: 'picos' },
       { k: 'bookmarks', t: 'Marcadores', d: 'Botón 🔖 en el chat y Alt+B para guardar momentos con una nota. Salen en la barra de YouTube.', type: 'toggle', kw: 'guardar momentos notas' },
       { k: 'emoteCombo', t: 'Contador de spam de emotes', d: 'Cuando el chat spamea un emote aparece en grande con su contador (KEKW ×350).', type: 'toggle', kw: 'combo' },
-      { k: 'comboMin', t: 'Mínimo para el contador', d: 'Veces que tiene que salir un emote en 8 segundos.', type: 'range', min: 5, max: 60, step: 1, fmt: v => v + ' veces' }
+      { adv: 1, k: 'comboMin', t: 'Mínimo para el contador', d: 'Veces que tiene que salir un emote en 8 segundos.', type: 'range', min: 5, max: 60, step: 1, fmt: v => v + ' veces' }
     ] }
   ] },
   { id: 'filters', grp: 'Configuración', icon: 'filter', title: 'Filtros y menciones', groups: [
     { title: 'Qué mensajes se ven', rows: [
-      { k: 'showRoleStreamer', t: 'Streamer', type: 'toggle', kw: 'modos de chat' },
-      { k: 'showRoleMod', t: 'Moderadores', type: 'toggle', kw: 'mods' },
-      { k: 'showRoleVip', t: 'VIP', type: 'toggle' },
-      { k: 'showRoleSub', t: 'Suscriptores', type: 'toggle', kw: 'subs' },
-      { k: 'showRoleOther', t: 'Resto de usuarios', type: 'toggle' },
-      { k: 'showEmoteOnly', t: 'Mensajes solo de emotes', type: 'toggle', kw: 'emotes' }
+      { adv: 1, k: 'showRoleStreamer', t: 'Streamer', type: 'toggle', kw: 'modos de chat' },
+      { adv: 1, k: 'showRoleMod', t: 'Moderadores', type: 'toggle', kw: 'mods' },
+      { adv: 1, k: 'showRoleVip', t: 'VIP', type: 'toggle' },
+      { adv: 1, k: 'showRoleSub', t: 'Suscriptores', type: 'toggle', kw: 'subs' },
+      { adv: 1, k: 'showRoleOther', t: 'Resto de usuarios', type: 'toggle' },
+      { adv: 1, k: 'showEmoteOnly', t: 'Mensajes solo de emotes', type: 'toggle', kw: 'emotes' }
     ] },
     { title: 'Filtros', rows: [
       { k: 'myName', t: 'Tu nombre', d: 'Los mensajes que te mencionen se resaltan y suenan.', type: 'text', ph: 'tu_usuario' },
       { k: 'highlightWords', t: 'Palabras a resaltar', d: 'Separadas por comas.', type: 'area', ph: 'gta, illojuan, jaja' },
       { k: 'blockedWords', t: 'Palabras a ocultar', d: 'Los mensajes que las contengan no se muestran.', type: 'area', ph: 'spoiler, …' },
-      { k: 'blockedUsers', t: 'Usuarios ocultos', d: 'También puedes ocultar a alguien desde su tarjeta en el chat.', type: 'area', ph: 'usuario1, usuario2' },
+      { adv: 1, k: 'blockedUsers', t: 'Usuarios ocultos', d: 'También puedes ocultar a alguien desde su tarjeta en el chat.', type: 'area', ph: 'usuario1, usuario2' },
       { k: 'hideBots', t: 'Ocultar bots', d: 'Nightbot, StreamElements, Moobot, Fossabot…', type: 'toggle' },
-      { k: 'hideNotices', t: 'Ocultar avisos de suscripción', type: 'toggle', kw: 'subs regalos' }
+      { adv: 1, k: 'hideNotices', t: 'Ocultar avisos de suscripción', type: 'toggle', kw: 'subs regalos' }
     ] }
   ] },
   { id: 'sounds', grp: 'Configuración', icon: 'sound', title: 'Sonidos', groups: [
     { rows: [
       { k: 'soundOn', t: 'Sonidos', type: 'toggle' },
       { k: 'soundVol', t: 'Volumen', type: 'range', min: 0, max: 1, step: 0.05, fmt: pct },
-      { k: 'soundUi', t: 'Clics y menús', type: 'toggle' },
-      { k: 'soundHl', t: 'Menciones y palabras resaltadas', type: 'toggle' },
-      { k: 'soundNotice', t: 'Suscripciones y regalos', type: 'toggle' },
-      { k: 'soundLoad', t: 'Chat cargado / errores', type: 'toggle' },
-      { t: 'Probar', type: 'button', label: '▶ Escuchar todos', act: () => ['click', 'toggle', 'mention', 'notice', 'success', 'error'].forEach((n, i) => setTimeout(() => Sound.play(n), i * 550)) }
+      { adv: 1, k: 'soundUi', t: 'Clics y menús', type: 'toggle' },
+      { adv: 1, k: 'soundHl', t: 'Menciones y palabras resaltadas', type: 'toggle' },
+      { adv: 1, k: 'soundNotice', t: 'Suscripciones y regalos', type: 'toggle' },
+      { adv: 1, k: 'soundLoad', t: 'Chat cargado / errores', type: 'toggle' },
+      { adv: 1, t: 'Probar', type: 'button', label: '▶ Escuchar todos', act: () => ['click', 'toggle', 'mention', 'notice', 'success', 'error'].forEach((n, i) => setTimeout(() => Sound.play(n), i * 550)) }
     ] }
   ] },
   { id: 'sync', grp: 'Este vídeo', icon: 'sync', title: 'Sincronización', custom: renderSync, kw: 'desfase corte duración retraso adelanto' },
   { id: 'drive', grp: 'Datos', icon: 'drive', title: 'Google Drive', custom: renderDrive, kw: 'carpeta archivos json nube' },
   { id: 'library', grp: 'Datos', icon: 'lib', title: 'Biblioteca', custom: renderLibrary, kw: 'guardados borrar espacio' },
-  { id: 'keys', grp: 'Ayuda', icon: 'key', title: 'Atajos', custom: renderKeys, kw: 'teclado' },
+  { id: 'keys', grp: 'Ayuda', icon: 'key', title: 'Atajos', custom: renderKeys, kw: 'teclado atajos personalizados combinación teclas' },
   { id: 'about', grp: 'Ayuda', icon: 'info', title: 'Acerca de', custom: renderAbout, kw: 'créditos byalvaro actualizar actualización versión github release' }
 ];
 
@@ -156,7 +160,7 @@ function set(k, v, noRender) {
   const prev = S; S = applyChange(S, k, v); saveSettings(S); applyUi(prev);
   if (!noRender && (PRESET_SENSITIVE.includes(k) || (prev.perfPreset !== S.perfPreset))) renderAll(true);
 }
-const PRESET_SENSITIVE = ['perfPreset', 'fps', 'maxMessages', 'maxPerSecond', 'smoothScroll', 'animatedEmotes', 'showGraph', 'motion', 'fontSize', 'driveFolder'];
+const PRESET_SENSITIVE = ['advanced', 'perfPreset', 'fps', 'maxMessages', 'maxPerSecond', 'smoothScroll', 'animatedEmotes', 'showGraph', 'motion', 'fontSize', 'driveFolder'];
 
 function control(r) {
   const v = S[r.k];
@@ -217,6 +221,7 @@ function rowText(r) { return [r.t, r.d, r.kw].filter(Boolean).join(' '); }
 function row(r) {
   const lbl = h('div', { class: 'lbl' });
   const t = h('div', { class: 't' }); highlightInto(t, r.t, query); lbl.append(t);
+  if (r.adv && !S.advanced) t.append(h('span', { class: 'advtag', text: 'Avanzada' }));
   if (r.d) { const d = h('div', { class: 'd' }); highlightInto(d, r.d, query); lbl.append(d); }
   const isArea = r.type === 'area';
   const el = h('div', { class: 'row' + (isArea ? ' col' : ''), 'data-search': rowText(r).toLowerCase() }, lbl, h('div', { class: 'ctl', style: isArea ? 'width:100%' : '' }, control(r)));
@@ -287,10 +292,10 @@ function renderSync(box) {
     h('button', { class: mode === v ? 'on' : '', onclick: () => { Sound.play('click'); bc.postMessage({ t: 'sync', patch: { mode: v } }); } }, l)));
   const nb = d => h('button', { class: 'btn sm', onclick: () => { Sound.play('tick'); bc.postMessage({ t: 'sync', patch: { delta: Math.round(((sy.delta || 0) + d) * 10) / 10 } }); } }, (d > 0 ? '+' : '') + String(d).replace('.', ',') + ' s');
   box.append(
-    frow('Modo', 'Automático compara la duración del vídeo con la del chat.', seg),
+    ...(ADV() ? [frow('Modo', 'Automático compara la duración del vídeo con la del chat.', seg)] : []),
     frow('Ajuste fino', 'Mueve todo el chat antes o después. Atajos: Alt+, y Alt+.', nb(-5), nb(-1), nb(-0.5), nb(0.5), nb(1), nb(5), h('button', { class: 'btn sm', onclick: () => bc.postMessage({ t: 'sync', patch: { delta: 0 } }) }, 'Reiniciar')),
     frow('Ajustar con un mensaje', 'Pausa en un momento que reconozcas y pulsa el mensaje que corresponde.', h('button', { class: 'btn', onclick: () => { bc.postMessage({ t: 'pick', mode: 'delta' }); close(); } }, '🎯 Elegir mensaje')),
-    ...partsSection(sy, m),
+    ...(ADV() || (m && m.parts && m.parts.length > 1) ? partsSection(sy, m) : []),
     h('h3', { class: 'grp', text: 'Saltos del chat (cortes del vídeo)' }),
     h('p', { class: 'hint', text: 'YouTube no avisa de dónde se recortó un vídeo después de subirlo, pero la extensión sabe cuánto falta comparando duraciones. Ve justo después del corte (donde el chat empieza a ir adelantado) y pulsa «Corte aquí»: a partir de ese punto el chat pegará el mismo salto que el vídeo.' }),
     ...(Math.abs(sy.remaining) > 0.5 ? [h('p', null, h('span', { class: 'pill warn', text: `Sin compensar: ${fmtSigned(sy.remaining)}` }))] : []));
@@ -324,10 +329,10 @@ function renderSync(box) {
   box.append(listEl, h('div', { class: 'toolbar' },
     h('button', { class: 'btn primary', onclick: () => { bc.postMessage({ t: 'cutHere' }); Sound.play('toggle'); } }, `✂ Corte aquí${Math.abs(sy.remaining) > 0.5 ? ' (' + fmtSigned(sy.remaining) + ')' : ''}`),
     h('button', { class: 'btn', onclick: () => { bc.postMessage({ t: 'pick', mode: 'cut' }); close(); } }, '✂ Corte eligiendo un mensaje'),
-    h('button', { class: 'btn danger', onclick: () => { bc.postMessage({ t: 'unlink' }); toast('Chat desvinculado · la sincronización se guarda'); } }, 'Desvincular chat')));
+    ADV() ? h('button', { class: 'btn danger', onclick: () => { bc.postMessage({ t: 'unlink' }); toast('Chat desvinculado · la sincronización se guarda'); } }, 'Desvincular chat') : null));
   box.append(...twitchSection(sy, m));
   box.append(...pasteSection(sy));
-  if (m) box.append(h('p', { class: 'hint', text: `Chat: ${m.streamer || '—'} · ${fmtNum(m.count)} mensajes · ${fmtNum(m.chatters)} personas${m.title ? ' · «' + m.title + '»' : ''}` }));
+  if (m && ADV()) box.append(h('p', { class: 'hint', text: `Chat: ${m.streamer || '—'} · ${fmtNum(m.count)} mensajes · ${fmtNum(m.chatters)} personas${m.title ? ' · «' + m.title + '»' : ''}` }));
 }
 
 async function loadDrive(force) {
@@ -493,18 +498,49 @@ function renderLibrary(box) {
   renderBackup(box);
   box.append(h('p', { class: 'hint', text: 'Los chats se guardan para siempre en este navegador (IndexedDB) y se cargan al instante al volver a abrir el vídeo. La sincronización de cada vídeo (desfase, cortes, partes y marcadores) se guarda aparte: aunque borres sus chats, se aplica sola al volver a cargarlos. Un mismo chat puede usarse en varios vídeos (por ejemplo, un directo subido en partes).' }));
 }
+let keyRec = null;   // acción que está grabando una combinación
 function renderKeys(box) {
+  const B = bindings(S);
+  const kb = combo => combo ? h('span', { class: 'kbds' }, ...keysOf(combo).map((x, i) => [i ? h('span', { class: 'plus', text: '+' }) : '', h('kbd', { text: x })]).flat()) : h('span', { class: 'hint', text: 'Sin atajo' });
+  const save = map => { const out = {}; for (const a of ACTIONS) if ((map[a.id] || '') !== (KDEF[a.id] || '')) out[a.id] = map[a.id] || ''; set('keys', Object.keys(out).length ? out : null); renderAll(true); };
+  box.append(h('p', { class: 'hint', text: 'Pulsa «Cambiar» y luego la combinación que quieras (con Ctrl, Alt o Win, o una tecla F1–F12). Esc cancela. Funcionan en YouTube y con el chat enfocado.' }));
+  const card = h('div', { class: 'card keyed' });
+  for (const a of ACTIONS) {
+    const cur = B[a.id] || '', isDef = cur === (KDEF[a.id] || '');
+    const rec = keyRec === a.id;
+    const btnC = h('button', { class: 'btn sm' + (rec ? ' primary' : ''), onclick: () => { keyRec = rec ? null : a.id; Sound.play('click'); renderAll(true); } }, rec ? 'Pulsa la combinación…' : 'Cambiar');
+    const btnX = h('button', { class: 'btn sm', title: 'Quitar el atajo', disabled: !cur, onclick: () => { save({ ...B, [a.id]: '' }); Sound.play('click'); } }, '✕');
+    const btnR = h('button', { class: 'btn sm', title: 'Volver al de siempre' + (KDEF[a.id] ? ' (' + fmtCombo(KDEF[a.id]) + ')' : ' (ninguno)'), disabled: isDef, onclick: () => { save({ ...B, [a.id]: KDEF[a.id] || '' }); Sound.play('click'); } }, '↺');
+    card.append(h('div', { class: 'krow' + (rec ? ' rec' : '') }, h('div', { class: 'kt', text: a.t }), h('div', { class: 'kv2' }, kb(cur)), h('div', { class: 'kb' }, btnC, btnX, btnR)));
+  }
+  box.append(card);
+  box.append(h('div', { class: 'toolbar' }, h('button', { class: 'btn', disabled: !S.keys, onclick: () => { set('keys', null); keyRec = null; renderAll(true); toast('Atajos restablecidos'); } }, '↺ Restablecer todos')));
+  box.append(h('h3', { class: 'grp', text: 'Otros (fijos)' }));
   const k = (keys, txt) => [h('div', null, ...keys.map((x, i) => [i ? ' ' : '', h('kbd', { text: x })])), h('div', { class: 'hint', style: 'color:var(--fg2)', text: txt })];
   box.append(h('div', { class: 'card', style: 'padding:16px' }, h('div', { class: 'keys' },
-    ...k(['Alt', 'C'], 'Mostrar u ocultar el chat'),
-    ...k(['Alt', ','], 'Chat 1 s antes (con Shift, 5 s)'),
-    ...k(['Alt', '.'], 'Chat 1 s después (con Shift, 5 s)'),
-    ...k(['Alt', 'B'], 'Añadir un marcador (si están activados)'),
-    ...k(['Ctrl', 'F'], 'Buscar en el chat (con el chat enfocado)'),
     ...k(['Esc'], 'Cerrar menús'),
+    ...k(['Espacio', 'K', 'J', 'L', '←', '→', 'M', 'F'], 'Con el chat enfocado: los atajos de YouTube siguen funcionando'),
     ...k(['Clic'], 'En un nombre: tarjeta del usuario · En la hora: saltar a ese momento'),
     ...k(['Clic derecho'], 'En la gráfica: momentos con más chat'))));
 }
+// grabar la combinación
+document.addEventListener('keydown', e => {
+  if (!keyRec) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.key === 'Escape') { keyRec = null; renderAll(true); return; }
+  const c = comboOf(e);
+  if (!c) return;
+  if (!validCombo(c)) { toast('Usa Ctrl, Alt o Win con otra tecla, o una tecla F1–F12'); Sound.play('error'); return; }
+  const B = bindings(S), id = keyRec;
+  const other = ACTIONS.find(a => a.id !== id && B[a.id] === c);
+  const map = { ...B, [id]: c };
+  if (other) map[other.id] = '';
+  keyRec = null;
+  const out = {}; for (const a of ACTIONS) if ((map[a.id] || '') !== (KDEF[a.id] || '')) out[a.id] = map[a.id] || '';
+  set('keys', Object.keys(out).length ? out : null); renderAll(true);
+  Sound.play('success');
+  toast(other ? `${fmtCombo(c)} ya lo usaba «${other.t}»: se le ha quitado` : RESERVED.includes(c) ? `${fmtCombo(c)} guardado (ojo: el navegador también lo usa)` : `${fmtCombo(c)} guardado`);
+}, true);
 function renderAbout(box) {
   box.append(h('div', { class: 'card', style: 'padding:22px;display:flex;gap:22px;align-items:center;flex-wrap:wrap' },
     h('div', { class: 'press-card', style: 'padding:18px 20px' }, h('span', { class: 'press-in', style: 'font-size:22px', text: 'HECHO POR' }), h('span', { class: 'stand-out', style: 'font-size:26px', text: '@BYALVARO__' })),
@@ -527,7 +563,7 @@ function renderAbout(box) {
   const dl = h('button', { class: 'btn primary', hidden: true }, 'Descargar');
   const rl = h('button', { class: 'btn', hidden: true, onclick: async e => { e.currentTarget.textContent = 'Recargando…'; e.currentTarget.disabled = true; if (port) port.postMessage({ type: 'reloadPage', ms: 1400 }); await ask({ cmd: 'updReload' }); } }, 'Ya está → Recargar');
   box.append(frow('Versión instalada', `Chat Replay ${chrome.runtime.getManifest().version}. Las versiones nuevas salen del repositorio de GitHub de abajo (su version.json).`, chk, dl, rl), stTxt);
-  box.append(row({ k: 'updCheck', t: 'Avisar en YouTube si hay versión nueva', d: 'Al abrir YouTube sale un aviso con «Descargar» y «Recargar». Se comprueba como mucho cada 3 horas.', type: 'toggle' }));
+  if (ADV()) box.append(row({ k: 'updCheck', t: 'Avisar en YouTube si hay versión nueva', d: 'Al abrir YouTube sale un aviso con «Descargar» y «Recargar». Se comprueba como mucho cada 3 horas.', type: 'toggle' }));
   box.append(row({ k: 'updMode', t: 'Cómo actualizar', d: 'Automática: reemplaza los archivos en la carpeta de la extensión y recarga YouTube en el mismo minuto (sin descargar nada). Manual: bajas el zip y lo descomprimes tú.', type: 'select', opts: [['ask', 'Preguntar cada vez'], ['auto', '⚡ Automática'], ['manual', '📦 Manual']] }));
   const dirTxt = h('span', { class: 'hint', text: '…' });
   const forget = h('button', { class: 'btn', hidden: true, onclick: async () => { const SU = await import('./shared/selfupdate.js'); await SU.forgetDir(); paintDir(); toast('Carpeta olvidada: la próxima vez te la pedirá.'); } }, 'Olvidar carpeta');
@@ -535,10 +571,10 @@ function renderAbout(box) {
     try { const SU = await import('./shared/selfupdate.js'); const d = await SU.getDir(); dirTxt.textContent = d ? `«${d.name}»${(await SU.permOf(d, false)) ? ' · con permiso' : ' · Chrome pedirá confirmar el permiso'}` : 'Aún no elegida (te la pide la primera actualización automática).'; forget.hidden = !d; }
     catch { dirTxt.textContent = 'No disponible.'; }
   };
-  box.append(frow('Carpeta de la extensión', 'La que eliges la primera vez que actualizas en automático. Solo se modifica esa carpeta.', dirTxt, forget));
+  if (ADV()) box.append(frow('Carpeta de la extensión', 'La que eliges la primera vez que actualizas en automático. Solo se modifica esa carpeta.', dirTxt, forget));
   paintDir();
-  box.append(row({ k: 'updRepo', t: 'Repositorio de GitHub', d: 'usuario/repositorio (o el enlace). Tiene que ser público y tener el version.json y el .zip (o una «Release»).', type: 'text', ph: 'ByAlvaroo/CHAT-DE-YT' }));
-  box.append(h('p', { class: 'hint', text: 'Para publicar una versión: copia la carpeta y el .zip nuevos en tu repositorio, cambia el número en version.json y haz «Commit» + «Push» en GitHub Desktop. A los que tengan la extensión les saldrá el aviso al abrir YouTube.' }));
+  if (ADV()) box.append(row({ k: 'updRepo', t: 'Repositorio de GitHub', d: 'usuario/repositorio (o el enlace). Tiene que ser público y tener el version.json y el .zip (o una «Release»).', type: 'text', ph: 'ByAlvaroo/CHAT-DE-YT' }));
+  if (ADV()) box.append(h('p', { class: 'hint', text: 'Para publicar una versión: copia la carpeta y el .zip nuevos en tu repositorio, cambia el número en version.json y haz «Commit» + «Push» en GitHub Desktop. A los que tengan la extensión les saldrá el aviso al abrir YouTube.' }));
   ask({ cmd: 'updStatus' }).then(paint);
 }
 
@@ -562,9 +598,9 @@ const ago = t => {
 };
 const kb = b => (b / 1024).toFixed(1).replace('.', ',') + ' KB';
 async function act(btn, msg, okText) {
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
   const r = await ask(msg);
-  btn.disabled = false;
+  if (btn) btn.disabled = false;
   if (r && r.ok === false) { toast(r.error || 'No se pudo'); Sound.play('error'); }
   else { if (okText) toast(typeof okText === 'function' ? okText(r) : okText); Sound.play('success'); }
   acct = await ask({ t: 'acct-get' }); renderAll(true);
@@ -576,21 +612,36 @@ function renderAccount(box) {
   const a = acct.account;
   /* Sesión */
   box.append(h('h3', { class: 'grp', text: 'Sesión' }));
+  const knownBox = (exclude) => {
+    const l = (acct.known || []).filter(x => x.slug !== exclude);
+    if (!l.length) return null;
+    return h('div', { class: 'accts' }, ...l.map(x => h('div', { class: 'acct' },
+      h('button', { class: 'acct-b', title: 'Iniciar sesión con esta cuenta', onclick: () => { ui.name = x.name; ui.pass = ''; ui.amode = 'login'; if (a) { act(null, { t: 'acct-logout' }, `Escribe la contraseña de ${x.name}`); } else renderAll(true); setTimeout(() => { const i = document.querySelector('#sec-account input[type=password]'); if (i) i.focus(); }, 120); } },
+        h('span', { class: 'av', text: x.name.slice(0, 1).toUpperCase() }), h('span', { text: x.name })),
+      h('button', { class: 'acct-x', title: 'Quitar de esta lista (la cuenta no se borra)', onclick: () => act(null, { t: 'acct-forget', slug: x.slug }, 'Quitada de la lista') }, '✕'))));
+  };
   if (!a) {
-    const inp = h('input', { class: 'txt', type: 'text', placeholder: 'Tu nombre', value: ui.name, maxlength: 40, autocomplete: 'username' });
-    const pw = h('input', { class: 'txt', type: 'password', placeholder: 'Contraseña', value: ui.pass, maxlength: 128, autocomplete: 'current-password' });
+    const mode = ui.amode || ((acct.known || []).length ? 'login' : 'create');
+    const tabs = h('div', { class: 'seg' },
+      h('button', { class: mode === 'login' ? 'on' : '', onclick: () => { ui.amode = 'login'; Sound.play('click'); renderAll(true); } }, 'Iniciar sesión'),
+      h('button', { class: mode === 'create' ? 'on' : '', onclick: () => { ui.amode = 'create'; Sound.play('click'); renderAll(true); } }, 'Crear cuenta'));
+    box.append(h('div', { style: 'margin:4px 0 10px' }, tabs));
+    const inp = h('input', { class: 'txt', type: 'text', placeholder: 'Nombre de la cuenta', value: ui.name, maxlength: 40, autocomplete: 'username' });
+    const pw = h('input', { class: 'txt', type: 'password', placeholder: mode === 'create' ? 'Elige una contraseña (mín. 4)' : 'Contraseña', value: ui.pass, maxlength: 128, autocomplete: mode === 'create' ? 'new-password' : 'current-password' });
     const pw2 = h('input', { class: 'txt', type: 'password', placeholder: 'Repite la contraseña', value: '', maxlength: 128, autocomplete: 'new-password' });
     const info = h('p', { class: 'hint', style: 'min-height:18px;margin-top:6px' });
     let chk = null, chkT = 0;
     const paintChk = () => {
-      const nw = chk && chk.slug && !chk.hasPass;
-      pw2.hidden = !nw;
-      pw.placeholder = nw ? 'Elige una contraseña' : 'Contraseña';
-      pw.autocomplete = nw ? 'new-password' : 'current-password';
-      info.textContent = !chk || !chk.slug ? 'Escribe tu nombre y tu contraseña.'
-        : chk.hasPass ? 'Cuenta con contraseña: escríbela para entrar.'
-        : chk.exists ? 'Esta cuenta aún no tiene contraseña: elige una ahora (mínimo 4 caracteres). Desde entonces hará falta para entrar.'
-        : 'Cuenta nueva: elige una contraseña (mínimo 4 caracteres). Te la pedirá al iniciar sesión en otro navegador.';
+      const legacy = mode === 'login' && chk && chk.slug && chk.exists && !chk.hasPass;
+      pw2.hidden = !(mode === 'create' || legacy);
+      if (legacy) pw.placeholder = 'Elige una contraseña (mín. 4)';
+      info.textContent = !chk || !chk.slug ? (mode === 'create' ? 'Elige un nombre y una contraseña. Puedes tener varias cuentas y cambiar entre ellas.' : 'Escribe el nombre de tu cuenta y su contraseña.')
+        : chk.blocked ? '⚠ Esta cuenta está bloqueada por el administrador.'
+        : mode === 'create' ? (chk.exists ? '⚠ Ese nombre ya tiene cuenta: usa «Iniciar sesión» o elige otro.' : chk.github ? 'Este nombre está en el archivo de cuentas de GitHub: usa la contraseña que te dio el administrador.' : '✓ Nombre libre.')
+        : chk.github ? 'Cuenta gestionada por el administrador (GitHub): escribe la contraseña que te dio.'
+        : chk.hasPass ? 'Escribe la contraseña de esta cuenta.'
+        : chk.exists ? 'Esta cuenta es de antes y aún no tiene contraseña: elige una ahora.'
+        : '⚠ No hay ninguna cuenta con ese nombre en este navegador. Créala en «Crear cuenta».';
     };
     const doCheck = async () => { const n = inp.value; if (!n.trim()) { chk = null; paintChk(); return; } const r = await ask({ t: 'acct-check', name: n }); if (inp.value === n) { chk = r && r.ok !== false ? r : null; paintChk(); } };
     inp.addEventListener('input', () => { ui.name = inp.value; clearTimeout(chkT); chkT = setTimeout(doCheck, 250); });
@@ -599,14 +650,16 @@ function renderAccount(box) {
       if (!inp.value.trim()) { inp.focus(); return; }
       if (!pw.value) { pw.focus(); return; }
       await doCheck();
-      if (chk && !chk.hasPass && pw2.value !== pw.value) { toast(pw2.value ? 'Las dos contraseñas no coinciden.' : 'Repite la contraseña para confirmarla.'); Sound.play('error'); pw2.hidden = false; pw2.focus(); return; }
-      const r = await act(go, { t: 'acct-login', name: inp.value, pass: pw.value }, r => (r.existed ? `Hola, ${r.name}: tu configuración se ha recuperado ✓` : r.preset ? `Hola, ${r.name}: configuración de ByAlvaro puesta ✓` : `Sesión iniciada como ${r.name} ✓`) + (r.created ? ' · contraseña guardada' : ''));
-      if (r && r.ok !== false) { ui.name = ''; ui.pass = ''; }
-    } }, 'Iniciar sesión');
+      if (!pw2.hidden && pw2.value !== pw.value) { toast(pw2.value ? 'Las dos contraseñas no coinciden.' : 'Repite la contraseña para confirmarla.'); Sound.play('error'); pw2.focus(); return; }
+      const r = await act(go, { t: 'acct-login', name: inp.value, pass: pw.value, mode }, r => r.created && mode === 'create' ? `Cuenta «${r.name}» creada ✓` : r.existed ? `Hola, ${r.name}: tu configuración se ha recuperado ✓` : r.preset ? `Hola, ${r.name}: configuración de ByAlvaro puesta ✓` : `Sesión iniciada como ${r.name} ✓`);
+      if (r && r.ok !== false) { ui.name = ''; ui.pass = ''; ui.amode = ''; }
+    } }, mode === 'create' ? 'Crear cuenta' : 'Iniciar sesión');
     for (const i of [inp, pw, pw2]) i.addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); });
     const fields = h('div', { style: 'display:flex;flex-direction:column;gap:8px;min-width:220px' }, inp, pw, pw2);
-    box.append(frow('Iniciar sesión', 'Tus ajustes, la posición del chat y la sincronización de cada vídeo se guardan en tu cuenta de Google de Chrome. La sesión no se inicia sola: si reinstalas la extensión o usas otro ordenador, inicia sesión con el mismo nombre y tu contraseña y vuelve todo.', fields, go));
+    box.append(frow(mode === 'create' ? 'Crear cuenta' : 'Iniciar sesión', 'Tus ajustes, la posición del chat y la sincronización de cada vídeo se guardan en tu cuenta. Al reinstalar la extensión o en otro ordenador (con la misma cuenta de Chrome), inicia sesión y vuelve todo.', fields, go));
     box.append(info);
+    const kb2 = knownBox(null);
+    if (kb2) box.append(h('h3', { class: 'grp', text: 'Cuentas en este navegador' }), kb2);
     paintChk(); if (ui.name) doCheck();
   } else {
     const st = acct.status, meta = acct.meta;
@@ -618,8 +671,15 @@ function renderAccount(box) {
         h('button', { class: 'btn sm', onclick: e => act(e.currentTarget, { t: 'acct-sync' }, 'Sincronizado ✓') }, '↻ Sincronizar ahora'),
         h('button', { class: 'btn sm danger', onclick: e => act(e.currentTarget, { t: 'acct-logout' }, 'Sesión cerrada · tus ajustes siguen guardados en tu cuenta') }, 'Cerrar sesión'))));
     box.append(h('p', { class: 'hint', text: 'Se guarda solo al cambiar cualquier cosa. Para que llegue a otros ordenadores, Chrome tiene que tener activada la sincronización de «Extensiones».' }));
+    /* Varias cuentas */
+    box.append(h('h3', { class: 'grp', text: 'Otras cuentas' }));
+    const kb3 = knownBox(a.slug);
+    if (kb3) box.append(kb3);
+    box.append(h('div', { class: 'toolbar' }, h('button', { class: 'btn', onclick: () => { ui.amode = 'create'; ui.name = ''; ui.pass = ''; act(null, { t: 'acct-logout' }, 'Tu cuenta queda guardada. Crea la nueva:'); } }, '＋ Crear otra cuenta'), h('button', { class: 'btn', onclick: () => { ui.amode = 'login'; ui.name = ''; ui.pass = ''; act(null, { t: 'acct-logout' }, 'Inicia sesión con otra cuenta'); } }, 'Iniciar sesión con otra')));
     /* Contraseña */
     box.append(h('h3', { class: 'grp', text: 'Contraseña' }));
+    if (acct.github) box.append(h('p', { class: 'hint', text: '🔒 La contraseña de esta cuenta la gestiona el administrador en GitHub (cuentas.json). Si la cambia allí, se te pedirá la nueva.' }));
+    else {
     const op = h('input', { class: 'txt', type: 'password', placeholder: 'Contraseña actual', maxlength: 128, autocomplete: 'current-password' });
     const np = h('input', { class: 'txt', type: 'password', placeholder: acct.hasPass ? 'Contraseña nueva' : 'Elige una contraseña', maxlength: 128, autocomplete: 'new-password' });
     const np2 = h('input', { class: 'txt', type: 'password', placeholder: 'Repítela', maxlength: 128, autocomplete: 'new-password' });
@@ -631,6 +691,26 @@ function renderAccount(box) {
     } }, acct.hasPass ? 'Cambiar contraseña' : 'Poner contraseña');
     box.append(frow(acct.hasPass ? 'Cambiar contraseña' : '⚠ Tu cuenta no tiene contraseña', acct.hasPass ? 'Te la pedirá al iniciar sesión en cualquier navegador.' : 'Ponle una: desde entonces hará falta para iniciar sesión con este nombre.',
       h('div', { style: 'display:flex;flex-direction:column;gap:8px;min-width:200px' }, op, np, np2), save));
+    }
+  }
+  /* Administrador: cuentas.json en GitHub */
+  if (ADV() || acct.byalvaro) {
+    const rm = acct.remote || {};
+    box.append(h('h3', { class: 'grp', text: 'Cuentas en GitHub (administrador)' }));
+    box.append(h('p', { class: 'hint', text: `Con un cuentas.json en ${rm.repo || 'el repositorio de las actualizaciones'} puedes poner o cambiar la contraseña de cualquier cuenta, o bloquearla. Lo que diga el archivo manda, y si cambias una contraseña se cierra la sesión de quien la tuviera abierta (se comprueba cada 30 min). ` + (rm.error ? `⚠ ${rm.error}` : rm.none ? 'Aún no hay cuentas.json.' : `Ahora tiene ${rm.n} cuenta${rm.n === 1 ? '' : 's'}.`) }));
+    const gn = h('input', { class: 'txt', type: 'text', placeholder: 'Nombre de la cuenta', value: ui.gname || '', autocomplete: 'off' });
+    const gp = h('input', { class: 'txt', type: 'password', placeholder: 'Contraseña nueva', autocomplete: 'new-password' });
+    const out = h('textarea', { class: 'txt', readonly: true, style: 'height:74px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px', placeholder: 'Aquí sale la línea para cuentas.json' });
+    gn.addEventListener('input', () => { ui.gname = gn.value; });
+    const gen = h('button', { class: 'btn primary', onclick: async e => {
+      const r = await ask({ t: 'acct-entry', name: gn.value, pass: gp.value });
+      if (!r || r.ok === false) { toast((r && r.error) || 'No se ha podido'); Sound.play('error'); return; }
+      out.value = `"${r.slug}": ${JSON.stringify(r.entry)}`; gp.value = '';
+      try { await navigator.clipboard.writeText(out.value); toast('Línea copiada ✓ · pégala dentro de "cuentas" en cuentas.json'); } catch { out.select(); toast('Copia la línea y pégala en cuentas.json'); }
+      Sound.play('success');
+    } }, 'Generar línea');
+    box.append(frow('Línea para cuentas.json', 'Escribe el nombre y la contraseña: sale la línea lista (solo la huella cifrada, nunca la contraseña, porque el repositorio es público). Para bloquear una cuenta: "nombre": {"bloqueada": true}.', h('div', { style: 'display:flex;flex-direction:column;gap:8px;min-width:200px' }, gn, gp), gen), out);
+    box.append(h('div', { class: 'toolbar' }, h('button', { class: 'btn sm', onclick: e => act(e.currentTarget, { t: 'acct-remote' }, r => r.ok ? (r.none ? 'No hay cuentas.json en el repositorio' : `cuentas.json leído ✓ (${Object.keys(r.map || {}).length} cuentas)`) : '⚠ ' + (r.error || 'Error')) }, '↻ Leer cuentas.json ahora')));
   }
 
   /* ByAlvaro publica */
@@ -771,6 +851,8 @@ function pasteSection(sy) {
 
 /* ---------- Render general ---------- */
 let navMatches = {};
+/** ¿Se ven las opciones avanzadas? (al buscar, siempre: así se encuentra todo) */
+const ADV = () => !!S.advanced || !!query;
 function renderAll(keepScroll) {
   const sc = content.scrollTop;
   const frag = document.createDocumentFragment();
@@ -778,8 +860,10 @@ function renderAll(keepScroll) {
   for (const sec of SECTIONS) {
     const el = h('section', { class: 'sec', id: 'sec-' + sec.id }, h('h2', null, h('span', { html: I[sec.icon] }), sec.title));
     if (sec.groups) for (const g of sec.groups) {
+      const rows = g.rows.filter(r => !r.adv || ADV());
+      if (!rows.length) continue;
       if (g.title) el.append(h('h3', { class: 'grp', text: g.title }));
-      for (const r of g.rows) el.append(row(r));
+      for (const r of rows) el.append(row(r));
     }
     if (sec.custom) sec.custom(el);
     if (query) {
@@ -793,7 +877,9 @@ function renderAll(keepScroll) {
   renderNav();
   if (keepScroll) content.scrollTop = sc;
 }
+function paintAdv() { const on = !!S.advanced; const tg = $('advTg'); if (tg) { tg.classList.toggle('on', on); $('advSw').setAttribute('aria-checked', on ? 'true' : 'false'); } }
 function renderNav() {
+  paintAdv();
   const cur = nav.querySelector('.nav-i.on'); const curId = cur && cur.dataset.id;
   nav.replaceChildren();
   let grp = null;
@@ -822,6 +908,7 @@ content.addEventListener('scroll', debounce(() => {
 let matchIdx = 0;
 const qEl = $('q');
 qEl.addEventListener('input', debounce(() => { query = qEl.value.trim(); matchIdx = 0; renderAll(true); focusMatch(); }, 120));
+$('advSw').addEventListener('click', () => { Sound.play('toggle'); set('advanced', !S.advanced); toast(S.advanced ? 'Opciones avanzadas: se ven todos los ajustes' : 'Solo los ajustes básicos'); });
 qEl.addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); matchIdx += e.shiftKey ? -1 : 1; focusMatch(); }
   if (e.key === 'Escape' && qEl.value) { e.stopPropagation(); qEl.value = ''; query = ''; renderAll(true); $('qn').textContent = ''; }

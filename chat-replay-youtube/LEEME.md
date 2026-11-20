@@ -131,6 +131,45 @@ Esta versión tiene un identificador fijo para que tu cuenta te siga siempre, as
 2. Quita la versión vieja y carga esta («Cargar descomprimida»).
 3. Ajustes → Biblioteca → **Importar** la copia. Desde aquí ya no hace falta nunca más: inicia sesión y todo se guarda solo.
 
+## Opciones avanzadas (1.8)
+Arriba en Ajustes (y en General) está el interruptor **Opciones avanzadas**:
+- **Apagado** (por defecto): solo se ven los ajustes básicos de cada sección, para ir más rápido.
+- **Encendido**: se ven todos.
+- El **buscador** siempre encuentra todo; los ajustes avanzados salen marcados con «Avanzada».
+
+## Atajos personalizados (1.8)
+Ajustes → **Atajos**: cada acción tiene su combinación y la puedes cambiar. Pulsa **Cambiar** y luego la combinación (con Ctrl, Alt o Win, o una tecla F1–F12; Esc cancela). **✕** la quita y **↺** vuelve a la de siempre. Si eliges una que ya usa otra acción, se le quita a la otra.
+
+Acciones: mostrar u ocultar el chat, mover el chat 1 s / 5 s, marcador, buscar mensajes, **buscar usuarios** (Alt+U), menú de sincronización, 🎯 ajustar con un mensaje, ✂ corte aquí, abrir los ajustes, volver a descargar el chat y bajar al último mensaje. Funcionan en YouTube y con el chat enfocado.
+
+## Buscar usuarios (1.8)
+En la búsqueda del chat (🔍) hay dos pestañas: **Mensajes** y **Usuarios**. En Usuarios salen los que más han escrito (o los que coinciden con el nombre que escribas), con cuántos mensajes y entre qué minutos. Pulsa uno para ver:
+- **Sus mensajes** en este directo;
+- **Le mencionan o responden**: los mensajes de otros con @su_nombre o que le responden;
+- **Habla más con**: con quién ha interactuado más (pulsa un nombre para ir a ese usuario).
+
+También desde la tarjeta de un usuario → **Interacciones**.
+
+## Cuentas (1.8)
+Ajustes → Tu cuenta → **Iniciar sesión** o **Crear cuenta** (nombre y contraseña). Puedes tener **varias cuentas** y cambiar entre ellas: salen en «Cuentas en este navegador» / «Otras cuentas». Al cambiar de cuenta se guarda la anterior y se pone la configuración de la nueva.
+
+### Contraseñas desde GitHub (administrador)
+En el repositorio de las actualizaciones (**ByAlvaroo/CHAT-DE-YT**) hay un **cuentas.json**. Lo que diga ese archivo manda:
+
+```json
+{
+  "cuentas": {
+    "pepe": { "salt": "…", "it": 150000, "hash": "…" },
+    "ana": { "bloqueada": true }
+  }
+}
+```
+
+- Para **poner o cambiar** la contraseña de una cuenta: Ajustes → Tu cuenta → «Cuentas en GitHub (administrador)» (con Opciones avanzadas) → escribe el nombre y la contraseña → **Generar línea** (se copia sola) → pégala dentro de `"cuentas"` y haz Commit + Push.
+- Para **bloquear** una cuenta: `"nombre": { "bloqueada": true }`.
+- Si cambias la contraseña de alguien, su sesión abierta se cierra (se comprueba al abrir Chrome y cada 30 min) y tendrá que entrar con la nueva. Esas cuentas no pueden cambiar su contraseña desde la extensión.
+- En el archivo **nunca va la contraseña**, solo una huella cifrada: el repositorio es público y cualquiera puede leerlo.
+
 ## Tu cuenta (Ajustes → Tu cuenta)
 - **Iniciar sesión** con tu nombre y tu contraseña: tus ajustes, la posición del chat y la sincronización de cada vídeo (desfases, cortes, partes, marcadores y de qué archivo de Drive sale el chat) se guardan en tu **cuenta de Google de Chrome**.
 - Si reinstalas la extensión o usas otro ordenador con la misma cuenta de Chrome, se recupera todo solo (los chats se vuelven a bajar de Drive al abrir cada vídeo).
