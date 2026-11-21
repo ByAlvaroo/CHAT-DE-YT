@@ -1,8 +1,8 @@
 {
-  "version": "1.10.0",
-  "resumen": "Nuevo botón «⇩ Traer del Sincronizador»: aplica solo el análisis completo del Sincronizador YT-Twitch 2 (VOD 1, VOD 2, cortes).",
-  "title": "Traer del Sincronizador",
-  "notes": "- «⇩ Traer del Sincronizador» en «Ajustar con enlaces de Twitch» y en Ajustes → Sincronización\n- Si el Sincronizador está abierto y analizó este vídeo, se aplica solo al abrir el chat (una vez por análisis)\n- Nada más cambia: tus cortes y sincronizaciones guardadas no se tocan",
+  "version": "1.11.0",
+  "resumen": "El chat del Sincronizador trae dentro la sincronización y se aplica sola al fotograma (cortes y varios VODs), con comprobación contra el chat de Twitch; arreglado que se reiniciaran los cortes.",
+  "title": "Sincronización automática y comprobación",
+  "notes": "- Los chats descargados con el Sincronizador traen dentro la sincronización exacta: se aplica sola al abrir el vídeo\n- Comprobación en Sincronización: VOD correcto, tramo cubierto, duración del vídeo, parecido y avisos del archivo\n- Comparar con el chat de Twitch en varios puntos de cada VOD\n- Historial de la sincronización de cada vídeo con «Restaurar»\n- Arreglado: una copia vieja de tu cuenta podía reiniciar los cortes al abrir Chrome\n- Sigue «⇩ Traer del Sincronizador» de la 1.10",
   "zip": "chat-replay-youtube.zip",
   "date": "2026-11-21"
 }

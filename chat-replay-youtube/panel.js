@@ -85,7 +85,7 @@ function stateMsg() {
       vid: st.vid, ytTitle: st.ytTitle, ytDuration: st.ytDuration, ytNow: ytNow(),
       hasChat: !!chat, chatKey: chat ? chat.key : null, chatKeys: chat ? chat.keys : null, meta: chat ? { ...chat.meta } : null,
       link: link ? JSON.parse(JSON.stringify(link)) : null,
-      sync: chat ? { mode: sync.mode, delta: sync.delta, cuts: sync.cuts, status: sync.status, remaining: sync.remaining, chatStart: sync.chatStart, chatEnd: sync.chatEnd, scale: sync.scale, tol: sync.tol, gaps: gapsOf(link), partsYt: chat.meta.parts ? chat.meta.parts.map(p => ytOf(p.at)) : null, partsInfo: chat.meta.parts ? chat.meta.parts.map(p => ({ n: p.n, vodId: p.vodId, rawEnd: p.rawEnd, name: p.name, dur: p.dur, count: p.count, countAll: p.countAll, rawStart: p.rawStart, off: p.off || 0, from: p.from, to: p.to, atYt: ytOf(p.at), endYt: ytOf(p.end), cuts: (p.cuts || []).map(c => ({ at: c.at, jump: c.jump, yt: partCutYt(p, c) })) })) : null, canRedownload: !!(link && link.srcs && link.srcs.length), curPart } : null,
+      sync: chat ? { mode: sync.mode, delta: sync.delta, cuts: sync.cuts, status: sync.status, remaining: sync.remaining, chatStart: sync.chatStart, chatEnd: sync.chatEnd, scale: sync.scale, tol: sync.tol, gaps: gapsOf(link), partsYt: chat.meta.parts ? chat.meta.parts.map(p => ytOf(p.at)) : null, partsInfo: chat.meta.parts ? chat.meta.parts.map(p => ({ n: p.n, vodId: p.vodId, rawEnd: p.rawEnd, name: p.name, dur: p.dur, count: p.count, countAll: p.countAll, rawStart: p.rawStart, off: p.off || 0, from: p.from, to: p.to, atYt: ytOf(p.at), endYt: ytOf(p.end), cuts: (p.cuts || []).map(c => ({ at: c.at, jump: c.jump, yt: partCutYt(p, c) })) })) : null, canRedownload: !!(link && link.srcs && link.srcs.length), curPart, cr: crOfChat() ? { made: crOfChat().made, applied: !!(link && link.sync.crMade === crOfChat().made), plan: crOfChat().plan, summary: crOfChat().summary } : null, checks: crChecks(), twCmp, hist: ((link && link.syncHist) || []).map(h => ({ at: h.at, txt: describeSync({ sync: h.sync }) || 'sin ajustes' })) } : null,
       loading: loading ? { stage: loading.stage, p: loading.p, name: loading.name } : null
     }
   };
@@ -108,6 +108,9 @@ bc.onmessage = e => {
     case 'redownload': redownload(); break;
     case 'twitchLinks': applyTwitch(m.text); break;
     case 'pullSincro': pullSincro(true); break;
+    case 'restoreSync': restoreSync(m.i); break;
+    case 'applyCr': maybeApplyCr(true); broadcastState(); break;
+    case 'twCompare': compareTwitch(); break;
     case 'addCut': addCut(m.at, m.jump); break;
     case 'editCut': editCut(m.i, m.at, m.jump); break;
     case 'delCut': if (link && link.sync.cuts) { link.sync.cuts.splice(m.i, 1); saveLink(); } break;
@@ -200,7 +203,28 @@ function computeSync() {
   lastNow = null;
   renderChip(); renderWarn(); buildGraph(); sendBar(); updateMarksBtn(); broadcastState();
 }
-const saveLinkDb = debounce(() => { if (link && link.vid) DB.put('links', link.vid, link).catch(() => {}); }, 300);
+/** Fecha e historial de la sincronización: así una copia vieja (de tu cuenta) nunca pisa la nueva, y se puede volver atrás */
+function stampSync(lk) {
+  if (!lk || !lk.sync) return;
+  const j = JSON.stringify(lk.sync);
+  if (lk.syncSnap === j) return;
+  if (lk.syncSnap) {
+    try { (lk.syncHist = lk.syncHist || []).unshift({ at: lk.syncAt || Date.now(), sync: JSON.parse(lk.syncSnap) }); lk.syncHist = lk.syncHist.slice(0, 15); } catch {}
+  }
+  lk.syncSnap = j; lk.syncAt = Date.now();
+}
+const saveLinkDb = debounce(() => { if (link && link.vid) { stampSync(link); DB.put('links', link.vid, link).catch(() => {}); } }, 300);
+/** Vuelve a una sincronización anterior del historial */
+function restoreSync(i) {
+  if (!link || !link.syncHist || !link.syncHist[i]) return;
+  const h = link.syncHist.splice(i, 1)[0];
+  link.sync = JSON.parse(JSON.stringify(h.sync));
+  link.manual = true;
+  Sound.play('success');
+  if (chat && chat.meta.parts) { saveLinkDb(); remerge(); } else saveLink();
+  broadcastState();
+  toast(`Sincronización restaurada (la de ${new Date(h.at).toLocaleString()})`, 4000);
+}
 function sortCuts() { if (link && link.sync && link.sync.cuts) link.sync.cuts.sort((a, b) => a.at - b.at); }
 /** Salto manual: en el segundo «at» del vídeo, el chat salta «jump» segundos (positivo = adelante) */
 function addCut(at, jump) {
@@ -236,25 +260,26 @@ function cutHere(jump) {
   toast(`✂ Corte en ${fmtTime(at)}: el chat salta ${fmtSigned(jump)}`);
 }
 /** Sincronización pegada del «Sincronizador YT-Twitch»: cada tramo es (minuto del directo, minuto del vídeo) */
-function importCuts(plan) {
+function importCuts(plan, quiet) {
   if (!chat || !link || !plan || !plan.segs || !plan.segs.length) { toast('Abre primero el chat de este vídeo.'); return; }
   const segs = plan.segs.slice().sort((a, b) => a.yt - b.yt);
   const parts = chat.meta.parts && chat.meta.parts.length > 1 ? chat.meta.parts : null;
   const vods = vodsOf(segs);
   const r3 = v => Math.round(v * 1000) / 1000;
   if (vods[vods.length - 1] > 1 && !parts) { toast(`El texto es de ${vods[vods.length - 1]} VODs, pero este vídeo tiene un solo chat. Carga las partes ([[parte1]], [[parte2]]…) y vuelve a pegarlo.`, 7000); Sound.play('error'); return; }
-  if (parts && segs.some(x => x.vod)) return importPartsPlan(segs, parts);
+  if (parts && segs.some(x => x.vod)) return importPartsPlan(segs, parts, quiet);
   // un solo VOD: desfase + cortes generales (como siempre)
   const offs = segs.map(s => s.tw - s.yt);
   link.sync.mode = 'start';                       // el chat se cuenta desde su inicio: así el desfase es exacto
   link.sync.delta = r3(offs[0] - (chat.meta.start || 0));
   link.sync.cuts = segs.slice(1).map((s, k) => ({ at: r3(s.yt), jump: r3(offs[k + 1] - offs[k]) })).filter(c => c.jump);
   link.manual = true;
-  Sound.play('success'); saveLink();
-  toast(`Sincronización pegada ✓ · ${link.sync.cuts.length} corte${link.sync.cuts.length === 1 ? '' : 's'}`, 3500);
+  if (!quiet) Sound.play('success');
+  saveLink();
+  if (!quiet) toast(`Sincronización pegada ✓ · ${link.sync.cuts.length} corte${link.sync.cuts.length === 1 ? '' : 's'}`, 3500);
 }
 /** Texto del Sincronizador con varios VODs: cada tramo va a su VOD (desde/hasta, posición y saltos propios) */
-function importPartsPlan(segs, parts) {
+function importPartsPlan(segs, parts, quiet) {
   const r = v => Math.round(v * 1000) / 1000, cs = chat.meta.start || 0;
   const byK = parts.map(() => []), bad = new Set();
   for (const x of segs) { const k = (x.vod || 1) - 1; if (k >= 0 && k < parts.length) byK[k].push(x); else bad.add(x.vod); }
@@ -289,8 +314,9 @@ function importPartsPlan(segs, parts) {
     if (c.cuts && !c.cuts.length) delete c.cuts;
     P[k] = c;
   });
-  Sound.play('success'); saveLinkDb(); remerge(); broadcastState();
-  toast(`Sincronización pegada ✓ · ${msgs.join(' · ')}${nCuts ? ` · ${nCuts} salto${nCuts === 1 ? '' : 's'}` : ''}${back > 0.05 ? ` · el trozo repetido (${fmtTime(back)}) sale una vez` : ''}`, 6000);
+  if (!quiet) Sound.play('success');
+  saveLinkDb(); remerge(); broadcastState();
+  if (!quiet) toast(`Sincronización pegada ✓ · ${msgs.join(' · ')}${nCuts ? ` · ${nCuts} salto${nCuts === 1 ? '' : 's'}` : ''}${back > 0.05 ? ` · el trozo repetido (${fmtTime(back)}) sale una vez` : ''}`, 6000);
 }
 /* ---------- Traer el resultado del Sincronizador YT-Twitch (abierto en el PC) ----------
  * El programa analiza el vídeo entero (cortes, cambio de VOD…) y deja el resultado en http://127.0.0.1:8765/api/result.
@@ -318,6 +344,9 @@ async function pullSincro(manual) {
     return;
   }
   if (!manual && link.sincroAt && link.sincroAt >= r.at) return;   // ya aplicado
+  // si el chat ya trae esta misma sincronización dentro (y está aplicada), no hace falta
+  const cr = crOfChat();
+  if (!manual && cr && r.made && cr.made === r.made && link.sync.crMade === cr.made) { link.sincroAt = r.at; saveLinkDb(); return; }
   const segs = parsePlan(r.plan);
   if (!segs.length) { if (manual) { toast('El resultado del Sincronizador no tiene tramos.'); Sound.play('error'); } return; }
   link.sincroAt = r.at;
@@ -565,7 +594,104 @@ function setChat(keys, data) {
   emptyEl.hidden = true; chatEl.hidden = false;
   prepFilters(); computeSync();
   broadcastState();
+  setTimeout(maybeApplyCr, 0);
   if (st.vid && sincroKey !== st.vid + '|' + chat.key) { sincroKey = st.vid + '|' + chat.key; setTimeout(() => pullSincro(false), 1500); }
+}
+/* ---------- Sincronización exacta que trae el chat (Sincronizador YT-Twitch) ---------- */
+const crOfChat = () => (chat && chat.meta && chat.meta.cr) || null;
+function crForThis(cr) { return cr && (!cr.youtube.id || !st.vid || cr.youtube.id === st.vid); }
+/** Se aplica sola si es de este vídeo y es más nueva que tu último cambio de la sincronización */
+function maybeApplyCr(force) {
+  const cr = crOfChat();
+  if (!cr || !link || !crForThis(cr)) return false;
+  if (!force) {
+    if (link.sync.crMade === cr.made) return false;                       // ya aplicada
+    if (link.syncAt && link.syncAt > cr.made && link.manual) return false;  // la has cambiado tú después: se respeta (y se ofrece)
+  }
+  const parts = chat.meta.parts && chat.meta.parts.length > 1 ? chat.meta.parts : null;
+  const maxV = Math.max(...cr.segs.map(x => x.vod || 1));
+  if (maxV > 1 && (!parts || parts.length < maxV)) { if (force) toast(`Esta sincronización es de ${maxV} VODs y el chat tiene ${parts ? parts.length : 1}: faltan partes.`, 6000); return false; }
+  link.sync.crMade = cr.made;
+  importCuts({ segs: cr.segs.map(x => ({ vod: maxV > 1 ? x.vod : null, tw: x.tw, tw2: x.tw2, yt: x.yt, yt2: x.yt2 })) }, true);
+  link.sync.crMade = cr.made;
+  saveLinkDb();
+  const sm = cr.summary || {};
+  toast(`✓ Sincronizado con el Sincronizador al fotograma · ${cr.segs.length} tramo${cr.segs.length === 1 ? '' : 's'}${sm.cuts ? ` · ${sm.cuts} corte${sm.cuts === 1 ? '' : 's'}` : ' · sin cortes'}`, 6000);
+  return true;
+}
+/** Comprobación del chat y de la sincronización (¿va bien o mal?) */
+function crChecks() {
+  const cr = crOfChat(), out = [];
+  if (!chat) return out;
+  if (!cr) { out.push({ ok: null, t: 'Este chat no trae la sincronización del Sincronizador (vuelve a descargarlo con él para que vaya al fotograma).' }); return out; }
+  const ok = (b, t, warn) => out.push({ ok: !!b, warn: !b && !!warn, t });
+  ok(crForThis(cr), crForThis(cr) ? 'La sincronización es de este vídeo de YouTube' : `⚠ La sincronización es de otro vídeo (${cr.youtube.title || cr.youtube.id})`);
+  const parts = chat.meta.parts && chat.meta.parts.length > 1 ? chat.meta.parts : [{ n: 1, vodId: chat.meta.vodId, rawStart: chat.meta.start || 0, rawEnd: chat.meta.end || chat.meta.lastT, cr: { checks: cr.checks } }];
+  for (const p of parts) {
+    const want = (cr.vods.find(v => v.n === p.n) || {}).id;
+    const segs = cr.segs.filter(x => (x.vod || 1) === p.n);
+    const lab = parts.length > 1 ? `VOD ${p.n}: ` : '';
+    if (want && p.vodId) ok(want === p.vodId, want === p.vodId ? `${lab}el chat es del VOD ${want}` : `${lab}el chat es del VOD ${p.vodId}, pero la sincronización es del ${want}`);
+    if (segs.length) {
+      const a = Math.min(...segs.map(x => x.tw)), b = Math.max(...segs.map(x => x.tw2));
+      const covers = (p.rawStart || 0) <= a + 1 && (!p.rawEnd || p.rawEnd >= b - 1);
+      ok(covers, covers ? `${lab}el chat cubre todo el tramo usado (${fmtTime(a)} → ${fmtTime(b)})` : `${lab}el chat no cubre todo el tramo (${fmtTime(a)} → ${fmtTime(b)}); el archivo va de ${fmtTime(p.rawStart || 0)} a ${fmtTime(p.rawEnd || 0)}`);
+    }
+  }
+  const yd = st.ytDuration, cd = cr.youtube.duration;
+  if (yd && cd) { const d = Math.abs(yd - cd); ok(d < 1.5, d < 1.5 ? 'El vídeo de YouTube dura lo mismo que cuando se sincronizó' : `El vídeo de YouTube dura ${fmtTime(yd)} y se sincronizó con ${fmtTime(cd)}: ¿lo has recortado después? Vuelve a sincronizarlo.`, true); }
+  const sm = cr.summary || {};
+  if (sm.similarity != null) ok(sm.similarity >= 90, `Parecido mínimo de las imágenes: ${sm.similarity}%${sm.full ? ' (comprobado todo el vídeo)' : ' (solo el inicio)'}`, true);
+  if (sm.coverage != null && sm.coverage < 99.5) out.push({ ok: true, t: `El ${(100 - sm.coverage).toFixed(1)}% del vídeo no está en el VOD (intro o trozos añadidos): ahí no hay chat` });
+  const applied = link && link.sync.crMade === cr.made;
+  const changed = applied && link.syncAt && link.sync.crMade && JSON.stringify(link.sync).length && link.syncHist && link.syncHist.length && link.syncAt > cr.made + 5000 && link.manual;
+  ok(applied, applied ? (changed ? 'Sincronización del Sincronizador aplicada (y luego la has retocado)' : 'Sincronización del Sincronizador aplicada al fotograma') : 'La sincronización del Sincronizador no está aplicada', true);
+  for (const p of parts) for (const c of ((p.cr && p.cr.checks) || [])) if (!c.ok) out.push({ ok: false, warn: !!c.warn, t: (parts.length > 1 ? `VOD ${p.n}: ` : '') + c.t });
+  return out;
+}
+/** Compara el chat descargado con el de Twitch en varios puntos del tramo usado */
+let twCmp = null;
+async function compareTwitch() {
+  const cr = crOfChat();
+  if (!chat) return;
+  const parts = chat.meta.parts && chat.meta.parts.length > 1 ? chat.meta.parts : [{ n: 1, vodId: chat.meta.vodId, rawStart: chat.meta.start || 0, rawEnd: chat.meta.end || chat.meta.lastT, shift: 0, off: 0, cuts: [] }];
+  twCmp = { busy: true, rows: [] }; broadcastState(); if (!popEl.hidden && popEl.dataset.kind === 'sync') openSync();
+  const norm = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  let good = 0, total = 0, err = null;
+  for (const [pi, p] of parts.entries()) {
+    if (!p.vodId) continue;
+    const segs = cr ? cr.segs.filter(x => (x.vod || 1) === p.n) : [];
+    const a = segs.length ? Math.min(...segs.map(x => x.tw)) : (p.rawStart || 0), b = segs.length ? Math.max(...segs.map(x => x.tw2)) : (p.rawEnd || chat.meta.lastT);
+    const offs = [0.05, 0.27, 0.5, 0.73, 0.95].map(f => Math.floor(a + (b - a) * f));
+    const r = await new Promise(res => chrome.runtime.sendMessage({ cmd: 'twCompare', vod: p.vodId, offsets: offs }, x => res(x || { ok: false, error: 'Sin respuesta' })));
+    if (!r.ok) { err = r.error; break; }
+    for (const pt of r.points) {
+      const tw = (pt.comments || []).slice(0, 12);
+      if (!tw.length) continue;
+      // mensajes del archivo de esa parte cerca de ese minuto
+      let hit = 0, n = 0;
+      for (const c of tw) {
+        const T0 = parts.length > 1 ? rawToMerged(p, c.o) : c.o;
+        if (T0 == null) continue;              // ese mensaje cae en un trozo que no se ve
+        n++;
+        let lo = 0, hi = chat.T.length;
+        while (lo < hi) { const m = (lo + hi) >> 1; if (chat.T[m] < T0 - 2.5) lo = m + 1; else hi = m; }
+        let found = false;
+        for (let i = lo; i < chat.T.length && chat.T[i] <= T0 + 2.5 && !found; i++) {
+          if (chat.PI && parts.length > 1 && chat.PI[i] !== pi) continue;
+          if (chat.logins[chat.U[i]] === String(c.login || '').toLowerCase() && norm(plain(i)) === norm(c.text)) found = true;
+        }
+        if (found) hit++;
+      }
+      if (!n) continue;
+      total++; if (hit >= Math.ceil(n * 0.8)) good++;
+      twCmp.rows.push({ vod: p.n, at: pt.o, hit, n });
+    }
+  }
+  twCmp = { busy: false, rows: twCmp.rows, good, total, err };
+  Sound.play(err ? 'error' : good === total ? 'success' : 'error');
+  toast(err ? `No se ha podido comparar con Twitch: ${err}` : good === total ? `✓ El chat coincide con el de Twitch en los ${total} puntos comprobados` : `⚠ Solo ${good} de ${total} puntos coinciden con Twitch`, 6000);
+  broadcastState(); if (!popEl.hidden && popEl.dataset.kind === 'sync') openSync();
 }
 async function linkChat(keys, auto = false) {
   if (!st.vid) return;
@@ -1353,6 +1479,23 @@ function openUser(u) {
     listEl);
 }
 
+let chkOpen = null;
+function checkBox() {
+  if (!chat) return '';
+  const list = crChecks(), cr = crOfChat();
+  const bad = list.filter(c => c.ok === false && !c.warn).length, warn = list.filter(c => c.ok === false && c.warn).length;
+  const head = !cr ? '◌ Comprobación: sin datos del Sincronizador' : bad ? `⚠ Comprobación: ${bad} problema${bad === 1 ? '' : 's'}` : warn ? `△ Comprobación: ${warn} aviso${warn === 1 ? '' : 's'}` : '✓ Comprobación: todo bien';
+  const det = h('details', { class: 'twl chk' + (bad ? ' bad' : warn ? ' warn' : cr ? ' ok' : ''), open: (chkOpen == null ? !!(bad || warn) : chkOpen) || undefined },
+    h('summary', { text: head }),
+    ...list.map(c => h('div', { class: 'ckl ' + (c.ok === true ? 'ok' : c.ok === false ? (c.warn ? 'warn' : 'bad') : 'na'), text: (c.ok === true ? '✓ ' : c.ok === false ? '⚠ ' : '· ') + c.t })),
+    twCmp && !twCmp.busy && twCmp.rows ? h('div', { class: 'ckl ' + (twCmp.err ? 'bad' : twCmp.good === twCmp.total ? 'ok' : 'bad'), text: twCmp.err ? `⚠ Twitch: ${twCmp.err}` : `${twCmp.good === twCmp.total ? '✓' : '⚠'} Comparado con el chat de Twitch: ${twCmp.good}/${twCmp.total} puntos coinciden (${twCmp.rows.map(r => `${fmtTime(r.at)} ${r.hit}/${r.n}`).join(' · ')})` }) : '',
+    h('div', { class: 'toolbar' },
+      cr && !(link && link.sync.crMade === cr.made) ? h('button', { class: 'btn primary sm', onclick: () => { maybeApplyCr(true); } }, 'Aplicar la del Sincronizador') : '',
+      cr && link && link.sync.crMade === cr.made && link.syncAt > cr.made + 5000 ? h('button', { class: 'btn sm', onclick: () => { maybeApplyCr(true); } }, '↺ Volver a la del Sincronizador') : '',
+      h('button', { class: 'btn sm', disabled: !!(twCmp && twCmp.busy), onclick: () => compareTwitch() }, twCmp && twCmp.busy ? 'Comparando…' : 'Comparar con Twitch')));
+  det.addEventListener('toggle', () => { chkOpen = det.open; });
+  return det;
+}
 function twForm() {
   const ta = h('textarea', { class: 'twl-ta', spellcheck: 'false', placeholder: 'https://www.twitch.tv/videos/111 desde 1:23:26.100 hasta 9:28:30.033 | YouTube desde 0:00:00.000 hasta 8:05:03.934' });
   ta.value = twDraft;
@@ -1454,6 +1597,7 @@ function openSync() {
   const canRe = !!(link.srcs && link.srcs.length);
   openPop('sync', h('h4', { text: 'Sincronización' }),
     h('button', { class: 'btn ghost sm redl', disabled: !!loading, title: canRe ? 'Descarga otra vez el chat (de Drive o del enlace) y conserva toda la sincronización' : 'Este chat se cargó desde un archivo de tu PC', onclick: () => { Sound.play('click'); redownload(); } }, canRe ? `↻ Volver a descargar el chat${chat.keys.length > 1 ? ` (${chat.keys.length} VODs)` : ''}` : '↻ Volver a descargar (cargado desde archivo)'),
+    checkBox(),
     twForm(),
     h('div', { class: 'kv' }, h('span', { text: 'Vídeo de YouTube' }), h('b', { text: fmtTime(st.ytDuration) })),
     h('div', { class: 'kv' }, h('span', { text: 'Chat' }), h('b', { text: `${fmtTime(sync.range)}${parts ? ` en ${parts.length} partes` : ''}${sync.chatStart ? ` (desde ${fmtTime(sync.chatStart)})` : ''}` })),

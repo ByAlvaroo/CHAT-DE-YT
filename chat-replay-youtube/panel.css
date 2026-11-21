@@ -291,3 +291,12 @@ details.twl .toolbar { display: flex; justify-content: flex-end; margin-top: 6px
 .useg button { border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; font-size: 11.5px; padding: 4px 8px; border-radius: 999px; cursor: pointer; }
 .useg button.on { border-color: var(--accent); color: var(--fg); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 a.ulink { color: var(--accent); text-decoration: none; } a.ulink:hover { text-decoration: underline; }
+
+/* Comprobación */
+details.chk.ok > summary { color: #3ecf8e; }
+details.chk.warn > summary { color: #f5b942; }
+details.chk.bad > summary { color: #ff6b6b; }
+.ckl { font-size: 12px; line-height: 1.45; margin: 4px 0; }
+.ckl.ok { color: var(--fg); } .ckl.ok::first-letter { color: #3ecf8e; }
+.ckl.warn { color: #f5b942; } .ckl.bad { color: #ff6b6b; } .ckl.na { color: var(--muted); }
+details.chk .toolbar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; margin-top: 8px; }

@@ -88,7 +88,8 @@ export function mergeChats(list, names = [], gaps = [], cfg = []) {
     const c = cfgOf(cfg, k);
     const base = k === 0 ? 0 : acc - start;            // posición «natural»: justo detrás de la parte anterior
     const p = { n: k + 1, name: names[k] || m.title || '', dur: Math.max(0, end - start), gap, vodId: m.vodId || null,
-      rawStart: start, rawEnd: end, shift: base + c.off, off: c.off, from: c.from, to: c.to, cuts: c.cuts, minT: -Infinity, countAll: d.T.length, count: 0 };
+      rawStart: start, rawEnd: end, shift: base + c.off, off: c.off, from: c.from, to: c.to, cuts: c.cuts, minT: -Infinity, countAll: d.T.length, count: 0,
+      cr: m.cr ? { vod: m.cr.vod, made: m.cr.made, checks: m.cr.checks } : null };
     // no se ve hasta que acabe el chat de la parte anterior
     p.minT = k === 0 ? -Infinity : prevEnd;
     const lastRaw = Math.min(p.to != null ? p.to : end, end);

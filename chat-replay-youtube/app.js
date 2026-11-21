@@ -330,6 +330,25 @@ function renderSync(box) {
     h('button', { class: 'btn primary', onclick: () => { bc.postMessage({ t: 'cutHere' }); Sound.play('toggle'); } }, `✂ Corte aquí${Math.abs(sy.remaining) > 0.5 ? ' (' + fmtSigned(sy.remaining) + ')' : ''}`),
     h('button', { class: 'btn', onclick: () => { bc.postMessage({ t: 'pick', mode: 'cut' }); close(); } }, '✂ Corte eligiendo un mensaje'),
     ADV() ? h('button', { class: 'btn danger', onclick: () => { bc.postMessage({ t: 'unlink' }); toast('Chat desvinculado · la sincronización se guarda'); } }, 'Desvincular chat') : null));
+  if (sy.checks && sy.checks.length) {
+    box.append(h('h3', { class: 'grp', text: 'Comprobación' }));
+    const card = h('div', { class: 'card', style: 'padding:12px 16px' });
+    for (const c of sy.checks) card.append(h('div', { style: `font-size:13px;margin:4px 0;color:${c.ok === true ? 'var(--fg)' : c.ok === false ? (c.warn ? '#d9a12b' : '#e5534b') : 'var(--muted)'}`, text: (c.ok === true ? '✓ ' : c.ok === false ? '⚠ ' : '· ') + c.t }));
+    const tc = sy.twCmp;
+    if (tc && !tc.busy && tc.rows) card.append(h('div', { style: `font-size:13px;margin:4px 0;color:${tc.err || tc.good !== tc.total ? '#e5534b' : 'var(--fg)'}`, text: tc.err ? `⚠ Twitch: ${tc.err}` : `${tc.good === tc.total ? '✓' : '⚠'} Comparado con el chat de Twitch: ${tc.good}/${tc.total} puntos coinciden` }));
+    card.append(h('div', { class: 'toolbar', style: 'margin-top:10px' },
+      sy.cr && !sy.cr.applied ? h('button', { class: 'btn primary sm', onclick: () => { bc.postMessage({ t: 'applyCr' }); Sound.play('click'); } }, 'Aplicar la del Sincronizador') : null,
+      h('button', { class: 'btn sm', disabled: !!(tc && tc.busy), onclick: () => { bc.postMessage({ t: 'twCompare' }); Sound.play('click'); } }, tc && tc.busy ? 'Comparando…' : 'Comparar con el chat de Twitch')));
+    box.append(card);
+    if (sy.cr && sy.cr.plan && ADV()) box.append(h('details', { style: 'margin:6px 0 0' }, h('summary', { class: 'hint', style: 'cursor:pointer', text: 'Ver el plan del Sincronizador' }), h('pre', { style: 'white-space:pre-wrap;font-size:11.5px;color:var(--fg2);margin:6px 0 0', text: sy.cr.plan })));
+  }
+  if (sy.hist && sy.hist.length) {
+    box.append(h('h3', { class: 'grp', text: `Historial de la sincronización (${sy.hist.length})` }));
+    box.append(h('p', { class: 'hint', text: 'Las últimas versiones de la sincronización de este vídeo. Si algo se ha estropeado (cortes que desaparecen, desfase cambiado), vuelve a una anterior.' }));
+    const card = h('div', { class: 'card', style: 'padding:4px 0' });
+    sy.hist.slice(0, ADV() ? 15 : 5).forEach((x, i) => card.append(h('div', { class: 'krow' }, h('div', { class: 'kt', text: x.txt }), h('div', { class: 'hint', style: 'margin:0', text: new Date(x.at).toLocaleString() }), h('div', { class: 'kb' }, h('button', { class: 'btn sm', onclick: () => { bc.postMessage({ t: 'restoreSync', i }); Sound.play('click'); } }, 'Restaurar')))));
+    box.append(card);
+  }
   box.append(...twitchSection(sy, m));
   box.append(...pasteSection(sy));
   if (m && ADV()) box.append(h('p', { class: 'hint', text: `Chat: ${m.streamer || '—'} · ${fmtNum(m.count)} mensajes · ${fmtNum(m.chatters)} personas${m.title ? ' · «' + m.title + '»' : ''}` }));
@@ -808,7 +827,9 @@ function twitchSection(sy, m) {
     Sound.play('success'); ui.tw = ''; ta.value = ''; paint();
   };
   paint();
-  out.push(ta, prev, h('div', { class: 'toolbar' }, go));
+  const pull = h('button', { class: 'btn', title: 'Con el Sincronizador abierto en tu PC: trae su último análisis de este vídeo y lo aplica', onclick: () => { bc.postMessage({ t: 'pullSincro' }); Sound.play('click'); } }, '⇩ Traer del Sincronizador');
+  out.push(ta, prev, h('div', { class: 'toolbar' }, go, pull),
+    h('div', { class: 'hint', text: 'Si el Sincronizador está abierto y analizó este vídeo, se aplica solo al abrir el chat (una vez por análisis).' }));
   return out;
 }
 
@@ -845,9 +866,7 @@ function pasteSection(sy) {
     Sound.play('success'); ui.paste = ''; ta.value = ''; paint();
   };
   paint();
-  const pull = h('button', { class: 'btn', title: 'Con el Sincronizador abierto en tu PC: trae su último análisis de este vídeo y lo aplica', onclick: () => { bc.postMessage({ t: 'pullSincro' }); Sound.play('click'); } }, '⇩ Traer del Sincronizador');
-  out.push(ta, prev, h('div', { class: 'toolbar' }, go, pull),
-    h('div', { class: 'hint', text: 'Si el Sincronizador está abierto y analizó este vídeo, se aplica solo al abrir el chat (una vez por análisis).' }));
+  out.push(ta, prev, h('div', { class: 'toolbar' }, go));
   return out;
 }
 
