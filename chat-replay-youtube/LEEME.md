@@ -182,6 +182,13 @@ En el repositorio de las actualizaciones (**ByAlvaroo/CHAT-DE-YT**) hay un **cue
   - lo que cambian ellos se queda como lo dejan, aunque ByAlvaro lo vuelva a cambiar.
 - **↺ Restablecer a ByAlvaro…**: «Solo los ajustes», «Todo» o «Elegir vídeos» (salen marcados los que has cambiado tú). Lo restablecido vuelve a seguir sus cambios.
 
+## Traer del Sincronizador (1.10)
+Con el **Sincronizador YT-Twitch 2** abierto en tu PC (INICIAR.bat), analiza el vídeo con sus VODs (uno por línea: VOD 1, VOD 2…).
+Cuando termina, Chat Replay **lo aplica solo** al abrir el chat de ese vídeo (una vez por análisis; mira cada 20 s mientras el chat está abierto).
+También a mano: **⇩ Traer del Sincronizador** en «🔗 Ajustar con enlaces de Twitch» o en Ajustes → Sincronización.
+Se aplica igual que «Pegar del Sincronizador»: el inicio de cada VOD, los cortes y los cambios de VOD, al fotograma.
+Solo se aplica si el análisis es de este mismo vídeo de YouTube.
+
 ## Pegar todos los cortes de una vez (Sincronizador YT-Twitch)
 Ajustes → Sincronización → **Pegar del Sincronizador**: pega el resultado completo del programa y pulsa **✂ Aplicar todos los cortes**. Antes de aplicar te enseña qué va a hacer con cada VOD.
 

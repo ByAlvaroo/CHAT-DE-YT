@@ -10,7 +10,7 @@ import { parseLink, getFolderFiles } from './shared/drive.js';
 import { loadChat, chatKeyOf, estimateSize } from './shared/loader.js';
 import { groupFiles, mergeChats, partOf, rawToMerged, mergedToRaw } from './shared/parts.js';
 import { parseTwitchLinks, assignLinks } from './shared/twlinks.js';
-import { vodsOf, partPlan } from './shared/sincro.js';
+import { vodsOf, partPlan, parsePlan } from './shared/sincro.js';
 import { bindings, comboOf } from './shared/keys.js';
 
 const app = document.getElementById('app');
@@ -107,6 +107,7 @@ bc.onmessage = e => {
     case 'partCut': addPartCut(m.k, m.at, m.jump); break;
     case 'redownload': redownload(); break;
     case 'twitchLinks': applyTwitch(m.text); break;
+    case 'pullSincro': pullSincro(true); break;
     case 'addCut': addCut(m.at, m.jump); break;
     case 'editCut': editCut(m.i, m.at, m.jump); break;
     case 'delCut': if (link && link.sync.cuts) { link.sync.cuts.splice(m.i, 1); saveLink(); } break;
@@ -291,6 +292,39 @@ function importPartsPlan(segs, parts) {
   Sound.play('success'); saveLinkDb(); remerge(); broadcastState();
   toast(`Sincronización pegada ✓ · ${msgs.join(' · ')}${nCuts ? ` · ${nCuts} salto${nCuts === 1 ? '' : 's'}` : ''}${back > 0.05 ? ` · el trozo repetido (${fmtTime(back)}) sale una vez` : ''}`, 6000);
 }
+/* ---------- Traer el resultado del Sincronizador YT-Twitch (abierto en el PC) ----------
+ * El programa analiza el vídeo entero (cortes, cambio de VOD…) y deja el resultado en http://127.0.0.1:8765/api/result.
+ * Si es de este vídeo se aplica solo (una vez por análisis) o a mano con «⇩ Traer del Sincronizador». */
+const SINCRO_URL = 'http://127.0.0.1:8765/api/result';
+let sincroBusy = false, sincroKey = '';
+async function pullSincro(manual) {
+  if (sincroBusy) return;
+  if (!chat || !link || !st.vid) { if (manual) { toast('Abre primero el chat de este vídeo.'); Sound.play('error'); } return; }
+  sincroBusy = true;
+  let r = null;
+  try {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 2500);
+    const res = await fetch(SINCRO_URL + '?t=' + Date.now(), { cache: 'no-store', signal: ctl.signal });
+    clearTimeout(to);
+    r = (await res.json()).result;
+  } catch {
+    if (manual) { toast('No encuentro el Sincronizador: ábrelo (INICIAR.bat) y analiza este vídeo.', 5000); Sound.play('error'); }
+    sincroBusy = false; return;
+  }
+  sincroBusy = false;
+  if (!r || !r.plan) { if (manual) { toast('El Sincronizador todavía no ha analizado ningún vídeo.', 4000); Sound.play('error'); } return; }
+  if (r.yt_id !== st.vid) {
+    if (manual) { toast(r.yt_id ? `El último análisis del Sincronizador es de otro vídeo («${r.yt_title || r.yt_id}»).` : 'El último análisis del Sincronizador se hizo con un archivo, no con este vídeo.', 5500); Sound.play('error'); }
+    return;
+  }
+  if (!manual && link.sincroAt && link.sincroAt >= r.at) return;   // ya aplicado
+  const segs = parsePlan(r.plan);
+  if (!segs.length) { if (manual) { toast('El resultado del Sincronizador no tiene tramos.'); Sound.play('error'); } return; }
+  link.sincroAt = r.at;
+  importCuts({ segs });
+  if (!manual) toast(`Sincronización del Sincronizador aplicada ✓ (${segs.length} tramo${segs.length === 1 ? '' : 's'})`, 5000);
+}
+setInterval(() => { if (chat && link && st.vid && document.visibilityState === 'visible') pullSincro(false); }, 20000);
 function seek(yt) { if (yt == null || !isFinite(yt)) return; send({ type: 'seek', t: Math.max(0, yt) }); clock.t = Math.max(0, yt); clock.at = performance.now(); lastNow = null; }
 function seekToMsg(i) {
   const yt = ytOf(chat.T[i]);
@@ -531,6 +565,7 @@ function setChat(keys, data) {
   emptyEl.hidden = true; chatEl.hidden = false;
   prepFilters(); computeSync();
   broadcastState();
+  if (st.vid && sincroKey !== st.vid + '|' + chat.key) { sincroKey = st.vid + '|' + chat.key; setTimeout(() => pullSincro(false), 1500); }
 }
 async function linkChat(keys, auto = false) {
   if (!st.vid) return;
@@ -1327,7 +1362,8 @@ function twForm() {
     h('summary', { text: '🔗 Ajustar con enlaces de Twitch' }),
     ta,
     h('div', { class: 'hint', text: 'Un enlace por VOD, en orden. Inicio: ?t= del enlace o «desde 5:10»; final: «hasta 3:02:00» (o pega otra vez el enlace con ?t= del final). Opcional «| YouTube desde 0:00:00 hasta 8:05:03» (o «yt 1:30:00») con el minuto del vídeo donde va ese VOD; si no, va justo detrás del anterior.' }),
-    h('div', { class: 'toolbar' }, go));
+    h('div', { class: 'toolbar' }, go,
+      h('button', { class: 'btn ghost sm', title: 'Trae el análisis completo del Sincronizador YT-Twitch abierto en tu PC (VOD 1, VOD 2, cortes…) y lo aplica', onclick: () => { twOpen = false; pullSincro(true); } }, '⇩ Traer del Sincronizador')));
   det.addEventListener('toggle', () => { twOpen = det.open; });
   return det;
 }

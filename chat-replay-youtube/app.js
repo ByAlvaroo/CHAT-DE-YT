@@ -845,7 +845,9 @@ function pasteSection(sy) {
     Sound.play('success'); ui.paste = ''; ta.value = ''; paint();
   };
   paint();
-  out.push(ta, prev, h('div', { class: 'toolbar' }, go));
+  const pull = h('button', { class: 'btn', title: 'Con el Sincronizador abierto en tu PC: trae su último análisis de este vídeo y lo aplica', onclick: () => { bc.postMessage({ t: 'pullSincro' }); Sound.play('click'); } }, '⇩ Traer del Sincronizador');
+  out.push(ta, prev, h('div', { class: 'toolbar' }, go, pull),
+    h('div', { class: 'hint', text: 'Si el Sincronizador está abierto y analizó este vídeo, se aplica solo al abrir el chat (una vez por análisis).' }));
   return out;
 }
 
