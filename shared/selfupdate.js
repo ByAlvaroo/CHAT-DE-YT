@@ -51,13 +51,19 @@ export async function checkDir(h) {
 
 /** Baja y descomprime la versión nueva (en memoria) y comprueba que es de esta extensión */
 export async function download(info) {
-  const url = info.raw || info.url;
-  let r;
-  try { r = await fetch(url, { cache: 'no-store' }); } catch { throw new Error('No se ha podido descargar el zip de GitHub.'); }
-  if (!r.ok) throw new Error(`GitHub respondió ${r.status} al descargar el zip.`);
-  const files = stripRoot(await unzip(await r.arrayBuffer()));
+  // el zip de la extensión; si no está (o no sirve), todo el repositorio de GitHub
+  const urls = [info.raw || info.url, info.alt, info.alt && info.alt.replace('/zip/HEAD', '/zip/refs/heads/main')].filter(Boolean);
+  let files = null, last = '';
+  for (const url of [...new Set(urls)]) {
+    let r;
+    try { r = await fetch(url, { cache: 'no-store' }); } catch { last = 'No se ha podido descargar de GitHub.'; continue; }
+    if (!r.ok) { last = `GitHub respondió ${r.status} al descargar la versión nueva.`; continue; }
+    try { files = extOf(stripRoot(await unzip(await r.arrayBuffer()))); } catch (e) { last = e.message; files = null; continue; }
+    if (files) break;
+    last = 'En lo descargado no está la extensión (manifest.json).';
+  }
+  if (!files) throw new Error(last || 'No se ha podido descargar la versión nueva.');
   const mf = files.find(f => f.path === 'manifest.json');
-  if (!mf) throw new Error('El zip no tiene manifest.json.');
   const m = JSON.parse(new TextDecoder().decode(mf.data));
   if (!sameExt(m)) throw new Error('El zip de GitHub no es de esta extensión: no se instala.');
   if (cmpVer(m.version, me().version) <= 0) throw new Error(`El zip de GitHub tiene la versión ${m.version} y ya tienes la ${me().version}. Revisa que subiste el zip nuevo.`);
@@ -80,4 +86,19 @@ export async function writeAll(dir, files, onProgress) {
     onProgress && onProgress(++n, order.length, f.path);
   }
   return n;
+}
+
+/** De un zip (de la extensión o de todo el repositorio) se queda con la carpeta que tiene el manifest.json de esta extensión */
+function extOf(files) {
+  const dec = new TextDecoder();
+  const cands = files.filter(f => f.path === 'manifest.json' || f.path.endsWith('/manifest.json'))
+    .sort((a, b) => a.path.split('/').length - b.path.split('/').length);
+  for (const mf of cands) {
+    let m; try { m = JSON.parse(dec.decode(mf.data)); } catch { continue; }
+    if (!sameExt(m)) continue;
+    const root = mf.path.slice(0, mf.path.length - 'manifest.json'.length);
+    return files.filter(f => f.path.startsWith(root)).map(f => ({ ...f, path: f.path.slice(root.length) }))
+      .filter(f => f.path && !/^\.git/.test(f.path));
+  }
+  return null;
 }

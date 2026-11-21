@@ -18,6 +18,8 @@ export function repoOf(s) {
   const r = String(s || '').trim().replace(/^https?:\/\/(www\.)?github\.com\//i, '').replace(/\.git$/i, '').replace(/\/(releases|tree|blob).*$/i, '').replace(/\/+$/, '');
   return /^[\w.-]+\/[\w.-]+$/.test(r) ? r : '';
 }
+/** Todo el repositorio en .zip (por si falta el zip de la extensión) */
+export const archiveUrl = repo => `https://codeload.github.com/${repo}/zip/HEAD`;
 const getSt = async () => { try { return (await chrome.storage.local.get(UKEY))[UKEY] || {}; } catch { return {}; } };
 const setSt = st => chrome.storage.local.set({ [UKEY]: st });
 
@@ -53,6 +55,7 @@ export async function check(force) {
         version: String(j.version || '').replace(/^[^\d]*/, ''),
         title: j.title || '',
         notes: String(j.notes || '').replace(/\r/g, '').trim().slice(0, 1500),
+        alt: archiveUrl(repo),
         url: /^https?:/.test(zip) ? zip : `https://github.com/${repo}/raw/HEAD/${zip.split('/').map(encodeURIComponent).join('/')}`,
         raw: /^https?:/.test(zip) ? zip : `https://raw.githubusercontent.com/${repo}/HEAD/${zip.split('/').map(encodeURIComponent).join('/')}`,
         summary: String(j.resumen || j.summary || '').trim().slice(0, 300),
@@ -61,8 +64,22 @@ export async function check(force) {
         published: j.date || null
       };
       if (!info.version) { error = 'El version.json del repositorio no tiene «version».'; info = null; }
+    } else if (await (async () => {
+      // 2) si no hay version.json: el manifest.json del repositorio (extensión en la raíz o en una carpeta)
+      for (const dir of ['', 'chat-replay-youtube/']) {
+        const m = await fetch(`https://raw.githubusercontent.com/${repo}/HEAD/${dir}manifest.json?t=${Date.now()}`, { cache: 'no-store' }).catch(() => null);
+        if (!m || !m.ok) continue;
+        const mj = await m.json().catch(() => null);
+        if (!mj || mj.name !== chrome.runtime.getManifest().name) continue;
+        info = { version: String(mj.version || ''), title: '', notes: '', summary: '', url: `https://github.com/${repo}/archive/HEAD.zip`,
+          raw: archiveUrl(repo), file: 'repositorio', page: `https://github.com/${repo}`, published: null };
+        return true;
+      }
+      return false;
+    })()) {
+      // listo
     } else {
-      // 2) si no hay version.json: la última «Release» de GitHub
+      // 3) la última «Release» de GitHub
       const r = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
       if (r.status === 404) error = `No encuentro ${repo}: tiene que ser público y tener un version.json (o una «Release»).`;
       else if (r.status === 403 || r.status === 429) error = 'GitHub limita las consultas: prueba dentro de un rato.';

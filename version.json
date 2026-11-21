@@ -1,0 +1,8 @@
+{
+  "version": "1.11.1",
+  "resumen": "Arreglada la actualización automática (el zip de GitHub no se encontraba) e incluye todo lo de la 1.11: chat del Sincronizador sincronizado solo al fotograma, comprobación con Twitch e historial.",
+  "title": "Arreglo de la actualización",
+  "notes": "- La actualización automática ya no falla si en GitHub falta el zip o el version.json\n- Los chats descargados con el Sincronizador traen dentro la sincronización exacta: se aplica sola al abrir el vídeo\n- Comprobación en Sincronización y «Comparar con Twitch»\n- Historial de la sincronización con «Restaurar»\n- Arreglado: una copia vieja de tu cuenta podía reiniciar los cortes al abrir Chrome",
+  "zip": "chat-replay-youtube.zip",
+  "date": "2026-11-21"
+}

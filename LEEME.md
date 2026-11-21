@@ -115,12 +115,14 @@ Las versiones nuevas se publican en **github.com/ByAlvaroo/CHAT-DE-YT**. Al abri
 - Marca **«Recordar mi elección»** para que no vuelva a preguntar. Se cambia en Ajustes → Acerca de → **Cómo actualizar** (Preguntar / Automática / Manual), donde también puedes ver u **olvidar la carpeta** elegida.
 - Al terminar sale «✓ Chat Replay actualizado a la X» con la frase de las novedades. Tus ajustes, chats, sincronización y sesión **no se pierden**.
 
-**Para publicar una versión** (ByAlvaro): copia en el repositorio la carpeta `chat-replay-youtube` y el `chat-replay-youtube.zip` nuevos y en `version.json` cambia:
+**Para publicar una versión** (ByAlvaro): pon en el repositorio los archivos nuevos de la extensión (en la raíz o en la carpeta `chat-replay-youtube`, como prefieras) y el `chat-replay-youtube.zip`, y en `version.json` cambia:
 - `version`: el mismo número que en `manifest.json`;
 - `resumen`: **una frase corta con lo nuevo** (es lo que sale destacado en el aviso);
 - `notes`: la lista completa de novedades.
 
 Luego, en GitHub Desktop, **Commit** y **Push origin**. El repositorio tiene que ser **público**.
+
+⚠ No borres `version.json` ni `chat-replay-youtube.zip` del repositorio. Si faltan, la extensión intenta leer la versión del `manifest.json` y bajar el repositorio entero, pero lo seguro es tenerlos.
 
 ## Actualizar sin perder nada
 Descomprime la versión nueva **encima de la misma carpeta** (reemplazando los archivos) y en `chrome://extensions` pulsa **↻** en la extensión. No pulses «Quitar»: así se conservan los ajustes, la sincronización y los chats guardados.
