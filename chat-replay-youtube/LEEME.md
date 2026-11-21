@@ -203,3 +203,8 @@ Se reanuda: VOD 2 5:11:54.521 → 5:11:56.629   (YouTube 3:54:04.767 → 3:54:06
 - Si el vídeo repite un trozo (**SALTO ATRÁS**), esos mensajes salen solo la primera vez (el chat no se puede ver dos veces).
 - Sustituye el desfase, los cortes y los ajustes de cada VOD que tuviera ese vídeo. Las líneas «CAMBIO DE VOD», «CORTE», «SALTO ATRÁS», «En total…» y «NO ESTÁ EN EL VOD» solo explican y se ignoran.
 - Si el texto tiene más VODs que partes el chat, te avisa y no aplica nada.
+
+## App YTVOD (1.9)
+La extensión ahora también funciona dentro de la app **YTVOD** (PC, iPad y móvil). En la extensión no cambia nada: los archivos nuevos (`shared/web.js`) solo se activan dentro de la app.
+- La app usa estos mismos archivos desde GitHub, así que **cada vez que publicas una versión nueva de la extensión, la app se actualiza sola**.
+- En la app, Google Drive se lee con la clave de Google de `app/config.js` (una web no puede leer Drive como la extensión).

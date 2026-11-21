@@ -39,7 +39,7 @@ let tokens = 0, tokenAt = performance.now();
 /* ---------- Comunicación ---------- */
 function send(m) { if (port) try { port.postMessage(m); } catch {} }
 window.addEventListener('message', e => {
-  if (e.source !== window.parent || e.origin !== 'https://www.youtube.com') return;
+  if (e.source !== window.parent || (e.origin !== 'https://www.youtube.com' && !(globalThis.__TCR_WEB && e.origin === location.origin))) return;
   const d = e.data;
   if (d && d.type === 'tcr-init' && e.ports && e.ports[0]) {
     port = e.ports[0];

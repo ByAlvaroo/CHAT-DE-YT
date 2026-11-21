@@ -45,8 +45,57 @@ async function fetchFolderPage(id, signal) {
   return { title, entries };
 }
 
+/* ---------- Modo app (web): la web no puede leer drive.google.com directamente (Google lo bloquea),
+ * así que usa la API de Google Drive con la clave de la app. En la extensión no se usa nada de esto. ---------- */
+const WEB = !!globalThis.__TCR_WEB;
+const API = 'https://www.googleapis.com/drive/v3/files';
+function apiKey() {
+  let k = '';
+  try { k = localStorage.getItem('tcr_api_key') || ''; } catch {}
+  if (!k) throw new Error('Falta la clave de Google (API key) de la app. Ponla en config.js o en el menú de la app → Clave de Google.');
+  return k;
+}
+async function apiJson(url, signal) {
+  const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(apiKey()), { signal, credentials: 'omit' });
+  if (!r.ok) {
+    let msg = ''; try { msg = ((await r.json()).error || {}).message || ''; } catch {}
+    if (r.status === 404) throw new Error('Drive no encuentra la carpeta o el archivo. ¿Está compartido como «Cualquier persona con el enlace»?');
+    if (r.status === 403 || r.status === 400) throw new Error('Google rechazó la clave de la app (' + r.status + '). Revisa que la API de Google Drive esté activada y que la clave permita esta web. ' + msg);
+    throw new Error('Google Drive respondió ' + r.status + '. ' + msg);
+  }
+  return r.json();
+}
+async function webListFolder(folderId, { depth = 4, signal, onFolder } = {}) {
+  const files = [];
+  const seen = new Set();
+  async function walk(id, path, d) {
+    if (seen.has(id) || d < 0) return;
+    seen.add(id);
+    let title = path[path.length - 1];
+    if (!path.length) { try { title = (await apiJson(`${API}/${encodeURIComponent(id)}?fields=name&supportsAllDrives=true`, signal)).name; } catch (e) { if (/clave|rechaz/.test(e.message)) throw e; title = 'Drive'; } }
+    const here = path.length ? path : [title || 'Drive'];
+    onFolder && onFolder(here.join(' / '));
+    const subs = [];
+    let page = '';
+    do {
+      const q = encodeURIComponent(`'${id}' in parents and trashed = false`);
+      const j = await apiJson(`${API}?q=${q}&fields=nextPageToken,files(id,name,mimeType,modifiedTime)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true${page ? '&pageToken=' + encodeURIComponent(page) : ''}`, signal);
+      for (const e of j.files || []) {
+        if (e.mimeType === 'application/vnd.google-apps.folder') subs.push(e);
+        else if (/\.(json|gz)$/i.test(e.name)) files.push({ id: e.id, name: e.name, folder: here.slice(1).join(' / ') || '', modified: e.modifiedTime ? new Date(e.modifiedTime).toLocaleDateString('es-ES') : '' });
+      }
+      page = j.nextPageToken || '';
+    } while (page);
+    await Promise.all(subs.map(s => walk(s.id, [...here, s.name], d - 1)));
+  }
+  await walk(folderId, [], depth);
+  files.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  return files;
+}
+
 /** Lista recursivamente los .json / .json.gz de una carpeta pública */
 export async function listFolder(folderId, { depth = 4, signal, onFolder } = {}) {
+  if (WEB) return webListFolder(folderId, { depth, signal, onFolder });
   const files = [];
   const seen = new Set();
   async function walk(id, path, d) {
@@ -123,6 +172,16 @@ function confirmUrlFromHtml(html) {
 
 /** Descarga un archivo de Drive a memoria (no a tu PC) */
 export async function downloadDrive(id, onProgress, signal) {
+  if (WEB) {
+    const r = await fetch(`${API}/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true&acknowledgeAbuse=true&key=${encodeURIComponent(apiKey())}`, { signal, credentials: 'omit' });
+    if (r.status === 404) throw new Error('Drive no encuentra el archivo (404). Revisa el enlace.');
+    if (r.status === 403 && /acknowledgeAbuse|cannotDownloadAbusiveFile/.test(await r.clone().text().catch(() => ''))) {
+      const r2 = await fetch(`${API}/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(apiKey())}`, { signal, credentials: 'omit' });
+      if (r2.ok) return readBody(r2, onProgress, signal);
+    }
+    if (!r.ok) throw new Error('Google Drive no ha entregado el archivo (' + r.status + '). Compártelo como «Cualquier persona con el enlace» y revisa la clave de la app.');
+    return readBody(r, onProgress, signal);
+  }
   const base = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download&confirm=t`;
   const tries = [{ url: base, cred: 'omit' }, { url: base, cred: 'include' }];
   for (const t of tries) {
