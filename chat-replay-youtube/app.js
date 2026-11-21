@@ -952,7 +952,7 @@ $('splash').addEventListener('click', () => { $('splash').hidden = true; });
 
 /* ---------- Comunicación ---------- */
 window.addEventListener('message', e => {
-  if (e.source !== window.parent || (e.origin !== 'https://www.youtube.com' && !(globalThis.__TCR_WEB && e.origin === location.origin))) return;
+  if (e.source !== window.parent || e.origin !== 'https://www.youtube.com') return;
   if (e.data && e.data.type === 'tcr-init' && e.ports && e.ports[0]) {
     port = e.ports[0];
     port.onmessage = ev => { const m = ev.data; if (m && m.type === 'open') onOpen(m.section); };

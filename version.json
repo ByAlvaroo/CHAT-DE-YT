@@ -1,8 +1,8 @@
 {
-  "version": "1.9.0",
-  "resumen": "Compatible con la app YTVOD: el chat funciona también en la app (PC, iPad y móvil) y le pasa tus cuentas y ajustes.",
-  "title": "Compatible con YTVOD",
-  "notes": "- La extensión funciona también dentro de la app YTVOD (en la extensión no cambia nada)\n- La app coge el chat de este repositorio: cada versión nueva de la extensión llega sola a la app\n- Desde la app puedes traer tus cuentas, ajustes, sincronización y chats de la extensión",
+  "version": "1.9.1",
+  "resumen": "Vuelve a ser exactamente la 1.8.0: se quita todo lo que se añadió para la app YTVOD.",
+  "title": "Vuelta a la 1.8.0",
+  "notes": "- La extensión queda igual que la 1.8.0 (solo cambia el número)\n- La app YTVOD va totalmente aparte y no toca nada de la extensión",
   "zip": "chat-replay-youtube.zip",
   "date": "2026-11-21"
 }
