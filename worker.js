@@ -253,29 +253,9 @@ function processChat(third) {
     count: n,
     chatters: names.length,
     lastT,
-    firstId: n ? (cs[order ? order[0] : 0]._id || '') : '',
-    cr: crOf(j.chatreplay)
+    firstId: n ? (cs[order ? order[0] : 0]._id || '') : ''
   };
   const out = { v: 1, meta, names, logins, colors, badges, sets, emotes, images, T, U, C, B, F, M };
   if (P) out.P = P;
   return out;
-}
-
-/** Sincronización exacta que mete el Sincronizador YT-Twitch dentro del chat («chatreplay») */
-function crOf(c) {
-  if (!c || typeof c !== 'object' || !Array.isArray(c.segments) || !c.segments.length) return null;
-  const num = x => (x == null || !isFinite(+x) ? null : +x);
-  const segs = c.segments.map(s => ({ vod: +s.vod || 1, tw: num(s.tw0), tw2: num(s.tw1), yt: num(s.yt0), yt2: num(s.yt1), sim: num(s.sim) }))
-    .filter(s => s.tw != null && s.yt != null && s.tw2 != null && s.yt2 != null);
-  if (!segs.length) return null;
-  const yt = c.youtube || {};
-  return {
-    v: +c.v || 1, made: +c.made || 0, app: String(c.app || ''),
-    youtube: { id: yt.id ? String(yt.id) : null, title: String(yt.title || ''), duration: num(yt.duration) },
-    vods: (c.vods || []).map(x => ({ n: +x.n || 0, id: x.id != null ? String(x.id) : null })),
-    vod: +c.vod || 1,
-    segs, missing: (c.missing || []).filter(g => Array.isArray(g) && g.length === 2).map(g => [+g[0], +g[1]]),
-    summary: c.summary || {}, checks: Array.isArray(c.file_checks) ? c.file_checks.slice(0, 12) : [],
-    plan: String(c.plan || '').slice(0, 20000)
-  };
 }

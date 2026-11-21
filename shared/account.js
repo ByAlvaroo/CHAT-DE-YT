@@ -55,7 +55,7 @@ async function collect() {
     if (!l || !l.vid) continue;
     const r = okSrcs(l.srcs);
     if (!hasSync(l) && !r) continue;
-    L[l.vid] = { s: l.sync, a: l.syncAt || undefined, m: l.marks && l.marks.length ? l.marks : undefined, r, t: l.ytTitle || undefined, k: l.linkedAt || 0, d: l.detached ? 1 : undefined };
+    L[l.vid] = { s: l.sync, m: l.marks && l.marks.length ? l.marks : undefined, r, t: l.ytTitle || undefined, k: l.linkedAt || 0, d: l.detached ? 1 : undefined };
   }
   return { v: 1, settings: loc.tcr_settings || null, overlay: loc.tcr_overlay || null, fsw: loc.tcr_fsw || null, links: L };
 }
@@ -120,15 +120,11 @@ export async function applyProfile(p) {
     const old = await DB.get('links', vid).catch(() => null);
     let nl;
     if (old) {
-      // manda la más NUEVA: una copia vieja de tu cuenta nunca pisa la sincronización que tienes aquí
-      const remoteNewer = r.a ? (!old.syncAt || r.a > old.syncAt + 1000) : !old.syncAt && !old.syncSnap;
-      if (!remoteNewer) { if (!old.srcs && r.r) await DB.put('links', vid, { ...old, srcs: r.r }).catch(() => {}); continue; }
-      const hist = (old.syncHist || []).slice();
-      if (old.sync && JSON.stringify(old.sync) !== JSON.stringify(r.s || old.sync)) hist.unshift({ at: old.syncAt || Date.now(), sync: old.sync });
-      nl = { ...old, sync: r.s || old.sync, syncAt: r.a || Date.now(), syncSnap: JSON.stringify(r.s || old.sync), syncHist: hist.slice(0, 15), marks: r.m || [], srcs: r.r || old.srcs, ytTitle: r.t || old.ytTitle, linkedAt: r.k != null ? r.k : old.linkedAt, detached: !!r.d };
+      // lo de tu cuenta manda (así dos ordenadores no se pisan una y otra vez)
+      nl = { ...old, sync: r.s || old.sync, marks: r.m || [], srcs: r.r || old.srcs, ytTitle: r.t || old.ytTitle, linkedAt: r.k != null ? r.k : old.linkedAt, detached: !!r.d };
     } else {
       // vídeo que solo conoce tu cuenta: guarda su sincronización y de dónde sale el chat (se descarga de Drive al abrirlo)
-      nl = { vid, ytTitle: r.t || '', sync: r.s || { mode: 'auto', delta: 0, cuts: [] }, syncAt: r.a || undefined, marks: r.m, srcs: r.r, linkedAt: r.k != null ? r.k : Date.now(), fromAccount: true, detached: r.d ? true : undefined };
+      nl = { vid, ytTitle: r.t || '', sync: r.s || { mode: 'auto', delta: 0, cuts: [] }, marks: r.m, srcs: r.r, linkedAt: r.k != null ? r.k : Date.now(), fromAccount: true, detached: r.d ? true : undefined };
     }
     if (!same(old, nl)) await DB.put('links', vid, nl).catch(() => {});
   }

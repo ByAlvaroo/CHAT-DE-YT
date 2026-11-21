@@ -68,7 +68,6 @@ chrome.storage.onChanged.addListener(async (ch, area) => {
 let softAt = 0;
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
   if (m && m.cmd === 'hasChat') { hasChat(m.items).then(reply, () => reply({ vids: [] })); return true; }
-  if (m && m.cmd === 'twCompare') { twComments(m.vod, m.offsets || []).then(reply, e => reply({ ok: false, error: e.message })); return true; }
   if (m && typeof m.cmd === 'string' && m.cmd.startsWith('upd')) {
     const run = async () => {
       switch (m.cmd) {
@@ -155,37 +154,3 @@ chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tcr-feed') { followChec
   // la pestaña de la actualización ya no sirve (la extensión se ha reiniciado)
   try { const ts = await chrome.tabs.query({ url: chrome.runtime.getURL('update.html') + '*' }); for (const t of ts) chrome.tabs.remove(t.id).catch(() => {}); } catch {}
 })();
-
-/* ---------- Chat de Twitch (para comparar con el archivo descargado) ---------- */
-const TW_CLIENT = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
-async function twGql(body) {
-  const r = await fetch('https://gql.twitch.tv/gql', { method: 'POST', headers: { 'Client-ID': TW_CLIENT, 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error('Twitch respondió ' + r.status);
-  return r.json();
-}
-const nodesOf = j => {
-  const x = Array.isArray(j) ? j[0] : j;
-  if (x && x.errors && x.errors.length) throw new Error(x.errors[0].message || 'error de Twitch');
-  const v = x && x.data && x.data.video;
-  if (!v) throw new Error('Twitch no devuelve ese VOD (¿borrado o solo para subs?)');
-  return ((v.comments && v.comments.edges) || []).map(e => e.node).filter(Boolean);
-};
-async function twCommentsAt(vod, o) {
-  let nodes;
-  try {
-    // la misma consulta que usa la web de Twitch (y TwitchDownloader)
-    nodes = nodesOf(await twGql([{ operationName: 'VideoCommentsByOffsetOrCursor', variables: { videoID: String(vod), contentOffsetSeconds: Math.max(0, Math.floor(o)) },
-      extensions: { persistedQuery: { version: 1, sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a' } } }]));
-  } catch (e1) {
-    const q = `query{video(id:"${String(vod).replace(/\D/g, '')}"){comments(contentOffsetSeconds:${Math.max(0, Math.floor(o))}){edges{node{id contentOffsetSeconds commenter{login displayName} message{fragments{text}}}}}}}`;
-    nodes = nodesOf(await twGql({ query: q }));
-  }
-  return nodes.map(n => ({ o: +n.contentOffsetSeconds || 0, login: n.commenter ? n.commenter.login : '', text: ((n.message && n.message.fragments) || []).map(f => f.text || '').join('') }))
-    .filter(c => c.login && c.o >= o - 5);
-}
-async function twComments(vod, offsets) {
-  if (!vod) return { ok: false, error: 'El chat no dice de qué VOD es' };
-  const points = [];
-  for (const o of offsets.slice(0, 8)) points.push({ o, comments: await twCommentsAt(vod, o) });
-  return { ok: true, points };
-}

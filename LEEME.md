@@ -115,14 +115,12 @@ Las versiones nuevas se publican en **github.com/ByAlvaroo/CHAT-DE-YT**. Al abri
 - Marca **«Recordar mi elección»** para que no vuelva a preguntar. Se cambia en Ajustes → Acerca de → **Cómo actualizar** (Preguntar / Automática / Manual), donde también puedes ver u **olvidar la carpeta** elegida.
 - Al terminar sale «✓ Chat Replay actualizado a la X» con la frase de las novedades. Tus ajustes, chats, sincronización y sesión **no se pierden**.
 
-**Para publicar una versión** (ByAlvaro): pon en el repositorio los archivos nuevos de la extensión (en la raíz o en la carpeta `chat-replay-youtube`, como prefieras) y el `chat-replay-youtube.zip`, y en `version.json` cambia:
+**Para publicar una versión** (ByAlvaro): copia en el repositorio la carpeta `chat-replay-youtube` y el `chat-replay-youtube.zip` nuevos y en `version.json` cambia:
 - `version`: el mismo número que en `manifest.json`;
 - `resumen`: **una frase corta con lo nuevo** (es lo que sale destacado en el aviso);
 - `notes`: la lista completa de novedades.
 
 Luego, en GitHub Desktop, **Commit** y **Push origin**. El repositorio tiene que ser **público**.
-
-⚠ No borres `version.json` ni `chat-replay-youtube.zip` del repositorio. Si faltan, la extensión intenta leer la versión del `manifest.json` y bajar el repositorio entero, pero lo seguro es tenerlos.
 
 ## Actualizar sin perder nada
 Descomprime la versión nueva **encima de la misma carpeta** (reemplazando los archivos) y en `chrome://extensions` pulsa **↻** en la extensión. No pulses «Quitar»: así se conservan los ajustes, la sincronización y los chats guardados.
@@ -183,34 +181,6 @@ En el repositorio de las actualizaciones (**ByAlvaroo/CHAT-DE-YT**) hay un **cue
   - lo que no han tocado se actualiza solo como lo tenga ByAlvaro;
   - lo que cambian ellos se queda como lo dejan, aunque ByAlvaro lo vuelva a cambiar.
 - **↺ Restablecer a ByAlvaro…**: «Solo los ajustes», «Todo» o «Elegir vídeos» (salen marcados los que has cambiado tú). Lo restablecido vuelve a seguir sus cambios.
-
-## Sincronización automática con el Sincronizador (1.9)
-El **Sincronizador YT-Twitch** (la app de PC) compara el vídeo de YouTube con el VOD fotograma a fotograma, detecta cortes, saltos atrás, cambios de VOD y trozos que no están en el VOD, descarga el chat de cada VOD y **le mete dentro la sincronización exacta**. El archivo sale con el nombre del vídeo de YouTube (y `[[parte1]]`, `[[parte2]]`… si hay varios VODs).
-
-Súbelo a tu carpeta de Drive y abre el vídeo: **Chat Replay aplica esa sincronización él solo**, sin tocar nada («✓ Sincronizado con el Sincronizador al fotograma»). Si después la retocas a mano se respeta lo tuyo, y siempre puedes volver a la del Sincronizador.
-
-### Comprobación (Sincronización → «Comprobación»)
-Te dice si todo va bien o qué falla:
-- que la sincronización es de **este** vídeo de YouTube;
-- que cada chat es del **VOD correcto** y **cubre todo el tramo** que se usa;
-- que el vídeo de YouTube **dura lo mismo** que cuando se sincronizó (si no, lo has recortado después);
-- el **parecido** de las imágenes y si se comprobó todo el vídeo;
-- los avisos del propio Sincronizador al descargar (huecos sin mensajes, archivo de otro VOD…).
-
-**Comparar con el chat de Twitch**: coge varios momentos de cada VOD, pide a Twitch sus mensajes y mira que estén en tu archivo en el mismo segundo («✓ 10/10 puntos coinciden»).
-
-### Historial de la sincronización
-Cada vídeo guarda sus últimas versiones de la sincronización (Ajustes → Sincronización → «Historial»). Si algo se estropea, **Restaurar** vuelve a una anterior.
-
-### Arreglado: cortes que se reiniciaban
-Al abrir Chrome, la extensión traía la copia de tu cuenta y la ponía encima aunque fuera más vieja que la de este ordenador (por ejemplo si los últimos cambios no habían llegado a guardarse). Ahora cada sincronización lleva su fecha y **siempre gana la más nueva**; lo que se sustituye queda en el historial.
-
-## Traer del Sincronizador (1.10)
-Con el **Sincronizador YT-Twitch** abierto en tu PC (INICIAR.bat), analiza el vídeo con sus VODs (uno por línea: VOD 1, VOD 2…).
-Cuando termina, Chat Replay **lo aplica solo** al abrir el chat de ese vídeo (una vez por análisis; mira cada 20 s mientras el chat está abierto).
-También a mano: **⇩ Traer del Sincronizador** en «🔗 Ajustar con enlaces de Twitch» o en Ajustes → Sincronización.
-Se aplica igual que «Pegar del Sincronizador»: el inicio de cada VOD, los cortes y los cambios de VOD, al fotograma.
-Solo se aplica si el análisis es de este mismo vídeo de YouTube. (Si el chat ya trae dentro esa misma sincronización, no hace falta.)
 
 ## Pegar todos los cortes de una vez (Sincronizador YT-Twitch)
 Ajustes → Sincronización → **Pegar del Sincronizador**: pega el resultado completo del programa y pulsa **✂ Aplicar todos los cortes**. Antes de aplicar te enseña qué va a hacer con cada VOD.
